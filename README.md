@@ -1,114 +1,225 @@
-<div align="center">
+# Dispatch Admin Dashboard<div align="center">
 
-# 🎯 Dispatch Admin Dashboard
 
-**Complete, production-ready web admin dashboard for managing the Dispatch community safety application**
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat&logo=next.js)](https://nextjs.org/)
+Production-ready admin dashboard for the Dispatch community safety application.# 🎯 Dispatch Admin Dashboard
+
+
+
+---**Complete, production-ready web admin dashboard for managing the Dispatch community safety application**
+
+
+
+## Setup[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat&logo=next.js)](https://nextjs.org/)
+
 [![React](https://img.shields.io/badge/React-19-blue?style=flat&logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+
+### 1. Install Dependencies[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8?style=flat&logo=tailwind-css)](https://tailwindcss.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e?style=flat&logo=supabase)](https://supabase.com/)
 
-[Demo](#) • [Documentation](#) • [Report Bug](https://github.com/kiyoko-org/dashboard-frontend/issues) • [Request Feature](https://github.com/kiyoko-org/dashboard-frontend/issues)
+```bash[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e?style=flat&logo=supabase)](https://supabase.com/)
 
-</div>
+bun install
 
----
+```[Demo](#) • [Documentation](#) • [Report Bug](https://github.com/kiyoko-org/dashboard-frontend/issues) • [Request Feature](https://github.com/kiyoko-org/dashboard-frontend/issues)
 
-## 📋 Table of Contents
 
-- [🚀 Quick Start](#-quick-start)
+
+### 2. Configure Environment</div>
+
+
+
+Create `.env.local`:---
+
+
+
+```bash## 📋 Table of Contents
+
+cp env.example .env.local
+
+```- [🚀 Quick Start](#-quick-start)
+
 - [✨ Features](#-features)
-- [📦 What's Included](#-whats-included)
+
+Edit `.env.local` with your Supabase credentials:- [📦 What's Included](#-whats-included)
+
 - [🛠️ Tech Stack](#️-tech-stack)
-- [🗄️ Database Schema](#️-database-schema)
-- [🚀 Deployment](#-deployment)
-- [🔧 Development](#-development)
-- [🐛 Troubleshooting](#-troubleshooting)
+
+```env- [🗄️ Database Schema](#️-database-schema)
+
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co- [🚀 Deployment](#-deployment)
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here- [🔧 Development](#-development)
+
+```- [🐛 Troubleshooting](#-troubleshooting)
+
 - [📂 Project Structure](#-project-structure)
-- [💡 Important Notes](#-important-notes)
 
----
+Get credentials from: https://supabase.com/dashboard → Your Project → Settings → API- [💡 Important Notes](#-important-notes)
 
-## 🚀 Quick Start
 
-Get up and running in 5 minutes!
+
+### 3. Run Database Migration---
+
+
+
+1. Open https://supabase.com/dashboard → SQL Editor## 🚀 Quick Start
+
+2. Click "New Query"
+
+3. Copy SQL from: `supabase-migrations/admin-setup.sql`Get up and running in 5 minutes!
+
+4. Paste and Run
 
 <details open>
-<parameter name="summary"><b>Step 1: Install Dependencies</b></summary>
 
-```bash
+### 4. Create Admin User<parameter name="summary"><b>Step 1: Install Dependencies</b></summary>
+
+
+
+Get your user ID from: Supabase → Authentication → Users```bash
+
 cd admin-dashboard
-bun install
+
+Run in SQL Editor:bun install
+
 ```
 
-</details>
+```sql
 
-<details>
-<parameter name="summary"><b>Step 2: Configure Environment</b></summary>
+UPDATE public.profiles </details>
 
-<br>
+SET role = 'admin' 
 
-**Option A: If you have Dispatch mobile app set up**
+WHERE id = 'your-user-id-here';<details>
 
-Copy credentials from `dispatch/.env` to `admin-dashboard/.env.local` with `NEXT_PUBLIC_` prefix:
+```<parameter name="summary"><b>Step 2: Configure Environment</b></summary>
 
-```env
+
+
+### 5. Start Dashboard<br>
+
+
+
+```bash**Option A: If you have Dispatch mobile app set up**
+
+bun run dev
+
+```Copy credentials from `dispatch/.env` to `admin-dashboard/.env.local` with `NEXT_PUBLIC_` prefix:
+
+
+
+Open http://localhost:3000```env
+
 # Example: If dispatch/.env has:
-SUPABASE_URL=https://abc123.supabase.co
+
+---SUPABASE_URL=https://abc123.supabase.co
+
 SUPABASE_ANON_KEY=eyJhbGc...
 
+## Deployment
+
 # Create admin-dashboard/.env.local with:
-NEXT_PUBLIC_SUPABASE_URL=https://abc123.supabase.co
+
+### VercelNEXT_PUBLIC_SUPABASE_URL=https://abc123.supabase.co
+
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+
+```bash```
+
+# Push to GitHub
+
+git push origin main**Option B: Starting fresh**
+
+
+
+# Deploy1. Get credentials from [Supabase Dashboard](https://supabase.com/dashboard) → Your Project → Settings → API
+
+# 1. Import project at vercel.com2. Create `.env.local` file:
+
+# 2. Add environment variables   ```bash
+
+# 3. Deploy   cp env.example .env.local
+
+```   ```
+
+3. Edit `.env.local` with your credentials:
+
+---   ```env
+
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+
+## Commands   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+
+   ```
+
+```bash
+
+bun run dev     # Start dev server</details>
+
+bun run build   # Build for production
+
+bun run start   # Start production server<details>
+
+bun run lint    # Run linter<parameter name="summary"><b>Step 3: Run Database Migration</b></summary>
+
 ```
 
-**Option B: Starting fresh**
-
-1. Get credentials from [Supabase Dashboard](https://supabase.com/dashboard) → Your Project → Settings → API
-2. Create `.env.local` file:
-   ```bash
-   cp env.example .env.local
-   ```
-3. Edit `.env.local` with your credentials:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-   ```
-
-</details>
-
-<details>
-<parameter name="summary"><b>Step 3: Run Database Migration</b></summary>
-
 <br>
+
+---
 
 1. Open [Supabase SQL Editor](https://supabase.com/dashboard)
-2. Click **"New Query"**
+
+## Troubleshooting2. Click **"New Query"**
+
 3. Copy SQL from: `supabase-migrations/admin-setup.sql`
-4. Paste and **Run**
 
-✅ **Success message:** "Success. No rows returned"
+**Cannot connect to Supabase?**4. Paste and **Run**
 
-</details>
+- Check `.env.local` has `NEXT_PUBLIC_` prefix
 
-<details>
-<parameter name="summary"><b>Step 4: Create Admin User</b></summary>
+- Restart: `bun run dev`✅ **Success message:** "Success. No rows returned"
 
-<br>
 
-1. Get your user ID from Supabase Dashboard:
-   - Navigate to: **Authentication** → **Users** → Copy your user ID
+
+**Access denied?**</details>
+
+```sql
+
+UPDATE public.profiles SET role = 'admin' WHERE id = 'your-user-id';<details>
+
+```<parameter name="summary"><b>Step 4: Create Admin User</b></summary>
+
+
+
+**Missing autoprefixer?**<br>
+
+```bash
+
+bun add -d autoprefixer1. Get your user ID from Supabase Dashboard:
+
+```   - Navigate to: **Authentication** → **Users** → Copy your user ID
+
    
-2. Run in SQL Editor:
-   ```sql
-   UPDATE public.profiles 
-   SET role = 'admin' 
-   WHERE id = 'your-user-id-here';
-   ```
 
-✅ **Success message:** "Success. 1 row updated"
+**Port 3000 in use?**2. Run in SQL Editor:
+
+```bash   ```sql
+
+bun run dev -- -p 3001   UPDATE public.profiles 
+
+```   SET role = 'admin' 
+
+   WHERE id = 'your-user-id-here';
+
+---   ```
+
+
+
+**Tech Stack:** Next.js 15 • React 19 • TypeScript • Tailwind CSS • Supabase • Bun✅ **Success message:** "Success. 1 row updated"
+
 
 </details>
 
