@@ -12,9 +12,11 @@ import {
   Clock,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { useReports } from "@/lib/new/useReports"
+import type { DatabaseReport } from "@/lib/new/types"
 
 export default function DashboardPage() {
-  // Mock data - will be replaced with real data from Supabase
+  // Mock stats - unchanged
   const stats = {
     totalIncidents: 1247,
     incidentsChange: "+12%",
@@ -30,60 +32,21 @@ export default function DashboardPage() {
     itemsUp: true,
   }
 
-  const recentIncidents = [
-    {
-      id: 1,
-      title: "Theft at Downtown Mall",
-      category: "Theft",
-      status: "investigating",
-      time: "10 minutes ago",
-      severity: "high",
-    },
-    {
-      id: 2,
-      title: "Traffic Accident on Main Street",
-      category: "Accident",
-      status: "resolved",
-      time: "1 hour ago",
-      severity: "medium",
-    },
-    {
-      id: 3,
-      title: "Suspicious Activity Near School",
-      category: "Suspicious Activity",
-      status: "pending",
-      time: "2 hours ago",
-      severity: "critical",
-    },
-    {
-      id: 4,
-      title: "Missing Person Report",
-      category: "Missing Person",
-      status: "investigating",
-      time: "3 hours ago",
-      severity: "critical",
-    },
-    {
-      id: 5,
-      title: "Property Damage Report",
-      category: "Vandalism",
-      status: "pending",
-      time: "5 hours ago",
-      severity: "low",
-    },
-  ]
+  // Use the reports hook
+  const { reports, loading, error } = useReports()
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: DatabaseReport["status"] | string) => {
     const variants: Record<string, "default" | "warning" | "success" | "destructive"> = {
       pending: "warning",
-      investigating: "default",
+      assigned: "default",
+      "in-progress": "warning",
       resolved: "success",
-      closed: "default",
+      cancelled: "destructive",
     }
     return <Badge variant={variants[status] || "default"}>{status}</Badge>
   }
 
-  const getSeverityBadge = (severity: string) => {
+  const getSeverityBadge = (severity: DatabaseReport["priority"] | string) => {
     const variants: Record<string, "default" | "warning" | "destructive"> = {
       low: "default",
       medium: "warning",
@@ -92,6 +55,9 @@ export default function DashboardPage() {
     }
     return <Badge variant={variants[severity] || "default"}>{severity}</Badge>
   }
+
+  // Show the most recent 5 reports for the "Recent Incidents" list
+  const recent = reports?.slice(0, 5) ?? []
 
   return (
     <div className="flex flex-col">
@@ -204,35 +170,49 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentIncidents.map((incident) => (
-                <div
-                  key={incident.id}
-                  className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{incident.title}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm text-muted-foreground">
-                          {incident.category}
-                        </span>
-                        <span className="text-sm text-muted-foreground">•</span>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {incident.time}
+              {loading && <p className="text-sm text-muted-foreground">Loading recent incidents...</p>}
+              {error && <p className="text-sm text-destructive">Error: {error}</p>}
+              {!loading && !error && recent.length === 0 && (
+                <p className="text-sm text-muted-foreground">No recent incidents</p>
+              )}
+
+              {recent.map((report) => {
+                const title = report.incident_title || "Untitled incident"
+                const category = report.incident_category || "Unknown"
+                const time = report.incident_time || new Date(report.created_at).toLocaleString()
+                const severity = report.priority || "low"
+                const status = report.status || "pending"
+
+                return (
+                  <div
+                    key={report.id}
+                    className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">{title}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm text-muted-foreground">
+                            {category}
+                          </span>
+                          <span className="text-sm text-muted-foreground">•</span>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {time}
+                          </div>
                         </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {getSeverityBadge(severity)}
+                      {getStatusBadge(status)}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {getSeverityBadge(incident.severity)}
-                    {getStatusBadge(incident.status)}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>
