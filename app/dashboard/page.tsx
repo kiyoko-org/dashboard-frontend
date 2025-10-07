@@ -35,6 +35,19 @@ export default function DashboardPage() {
   // Use the reports hook
   const { reports, loading, error } = useReports()
 
+  const totalIncidents = reports?.length ?? 0
+
+  // Calculate incidents change from last month
+  const now = new Date()
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const thisMonthCount = reports?.filter(r => new Date(r.created_at) >= thisMonth && new Date(r.created_at) < nextMonth).length ?? 0
+  const lastMonthCount = reports?.filter(r => new Date(r.created_at) >= lastMonth && new Date(r.created_at) < thisMonth).length ?? 0
+  const change = lastMonthCount === 0 ? 0 : ((thisMonthCount - lastMonthCount) / lastMonthCount) * 100
+  const incidentsChange = change === 0 ? "0%" : `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
+  const incidentsUp = change > 0
+
   const getStatusBadge = (status: DatabaseReport["status"] | string) => {
     const variants: Record<string, "default" | "warning" | "success" | "destructive"> = {
       pending: "warning",
@@ -75,18 +88,30 @@ export default function DashboardPage() {
               <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalIncidents}</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                {stats.incidentsUp ? (
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                ) : (
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                )}
-                <span className={stats.incidentsUp ? "text-green-600" : "text-red-600"}>
-                  {stats.incidentsChange}
-                </span>
-                {" "}from last month
-              </p>
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <div className="text-2xl font-bold">{totalIncidents}</div>
+                  <p className="text-xs text-muted-foreground">Total reports</p>
+                </div>
+
+                <div className="text-right">
+                  <div className={`text-sm ${incidentsUp ? 'text-green-600' : 'text-red-600'} font-semibold`}>
+                    {incidentsChange}
+                  </div>
+                  <p className="text-xs text-muted-foreground">From last month</p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex gap-4 text-sm text-muted-foreground">
+                <div className="flex flex-col">
+                  <span className="font-medium text-foreground">{thisMonthCount}</span>
+                  <span className="text-xs">This month</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-medium text-foreground">{lastMonthCount}</span>
+                  <span className="text-xs">Last month</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
