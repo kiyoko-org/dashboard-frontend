@@ -99,7 +99,7 @@ export interface Database {
 					middle_name: string | null
 					last_name: string | null
 					avatar_url: string | null
-					badgenumber: string | null
+					badge_number: string | null
 				}
 				Insert: {
 					id: string
@@ -107,7 +107,7 @@ export interface Database {
 					middle_name?: string | null
 					last_name?: string | null
 					avatar_url?: string | null
-					badgenumber?: string | null
+					badge_number?: string | null
 				}
 				Update: {
 					id?: string
@@ -115,7 +115,7 @@ export interface Database {
 					middle_name?: string | null
 					last_name?: string | null
 					avatar_url?: string | null
-					badgenumber?: string | null
+					badge_number?: string | null
 				}
 			}
 		}

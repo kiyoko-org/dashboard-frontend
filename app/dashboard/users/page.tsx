@@ -27,6 +27,7 @@ import {
   Phone,
   Calendar,
 } from "lucide-react"
+import { useProfiles } from "@/lib/new/useProfiles"
 
 interface UserData {
   id: string
@@ -46,69 +47,24 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  // Mock data
-  const users: UserData[] = [
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john.doe@example.com",
-      phone: "+63 912 345 6789",
-      role: "citizen",
-      status: "active",
-      verified: true,
-      reportsCount: 5,
-      joinedDate: "2024-12-01",
-      lastActive: "2025-01-15 14:30",
-    },
-    {
-      id: "2",
-      name: "Maria Santos",
-      email: "maria.santos@example.com",
-      phone: "+63 923 456 7890",
-      role: "moderator",
-      status: "active",
-      verified: true,
-      reportsCount: 12,
-      joinedDate: "2024-11-15",
-      lastActive: "2025-01-15 10:20",
-    },
-    {
-      id: "3",
-      name: "Pedro Cruz",
-      email: "pedro.cruz@example.com",
-      phone: "+63 934 567 8901",
-      role: "citizen",
+  const { profiles, loading, error } = useProfiles()
+
+  const users: UserData[] = (profiles ?? []).map((p) => {
+    const fullName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ")
+    const email = p.email ?? ""
+    return {
+      id: p.id,
+      name: fullName || p.id,
+      email,
+      phone: "", // not present on profiles by default
+      role: "citizen", // default; extend db if you have role
       status: "active",
       verified: false,
-      reportsCount: 2,
-      joinedDate: "2025-01-10",
-      lastActive: "2025-01-14 16:45",
-    },
-    {
-      id: "4",
-      name: "Anna Reyes",
-      email: "anna.reyes@example.com",
-      phone: "+63 945 678 9012",
-      role: "citizen",
-      status: "suspended",
-      verified: true,
-      reportsCount: 8,
-      joinedDate: "2024-10-20",
-      lastActive: "2025-01-10 09:15",
-    },
-    {
-      id: "5",
-      name: "Miguel Torres",
-      email: "miguel.torres@example.com",
-      phone: "+63 956 789 0123",
-      role: "verified_citizen",
-      status: "active",
-      verified: true,
-      reportsCount: 15,
-      joinedDate: "2024-09-05",
-      lastActive: "2025-01-15 12:00",
-    },
-  ]
+      reportsCount: 0,
+      joinedDate: "",
+      lastActive: "",
+    }
+  })
 
   const getRoleBadge = (role: string) => {
     const variants: Record<string, { variant: "default" | "success" | "warning" | "destructive", label: string }> = {
@@ -205,6 +161,9 @@ export default function UsersPage() {
             </CardContent>
           </Card>
         </div>
+
+        {loading && <div className="p-4 text-sm text-muted-foreground">Loading users…</div>}
+        {error && <div className="p-4 text-sm text-red-500">Failed to load users: {String(error)}</div>}
 
         {/* Filters and Actions */}
         <Card>
