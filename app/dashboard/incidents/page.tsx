@@ -258,19 +258,23 @@ export default function IncidentsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {report.is_anonymous ? (
-                              <>
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-muted-foreground italic">
-                                  Anonymous
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <User className="h-4 w-4" />
-                                <span>Reporter</span>
-                              </>
-                            )}
+                            {(() => {
+                              const profile = (report as any).profiles
+                              const reporterName = profile && (profile.first_name || profile.last_name) ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : report.reporter_id
+                              return report.is_anonymous ? (
+                                <>
+                                  <User className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-muted-foreground italic">
+                                    Anonymous
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <User className="h-4 w-4" />
+                                  <span>{reporterName}</span>
+                                </>
+                              )
+                            })()}
                           </div>
                         </TableCell>
                         <TableCell>

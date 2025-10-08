@@ -22,7 +22,7 @@ export function useReports(): UseReportsReturn {
 
       const { data, error: fetchError } = await supabase
         .from('reports')
-        .select('*')
+        .select('*, profiles(first_name, last_name)')
         .order('created_at', { ascending: false })
 
       if (fetchError) {
