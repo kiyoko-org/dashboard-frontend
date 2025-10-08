@@ -5,7 +5,7 @@ import type { Database } from "./types"
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"]
 
 export function useProfiles() {
-  const [profiles, setProfiles] = useState<(ProfileRow & { email?: string })[]>([])
+  const [profiles, setProfiles] = useState<(ProfileRow & { email?: string; joined_date?: string; last_sign_in_at?: string; reports_count?: number })[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

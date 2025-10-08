@@ -45,7 +45,6 @@ interface UserData {
 export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
 
   const { profiles, loading, error } = useProfiles()
 
@@ -60,9 +59,9 @@ export default function UsersPage() {
       role: "citizen", // default; extend db if you have role
       status: "active",
       verified: false,
-      reportsCount: 0,
-      joinedDate: "",
-      lastActive: "",
+      reportsCount: p.reports_count || 0,
+      joinedDate: p.joined_date ? new Date(p.joined_date).toLocaleDateString() : "",
+      lastActive: p.last_sign_in_at ? new Date(p.last_sign_in_at).toLocaleString() : "",
     }
   })
 
@@ -77,18 +76,7 @@ export default function UsersPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "success" | "warning" | "destructive"> = {
-      active: "success",
-      suspended: "warning",
-      banned: "destructive",
-    }
-    return (
-      <Badge variant={variants[status] || "default"} className="capitalize">
-        {status}
-      </Badge>
-    )
-  }
+
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -97,17 +85,13 @@ export default function UsersPage() {
       user.phone.includes(searchQuery)
 
     const matchesRole = roleFilter === "all" || user.role === roleFilter
-    const matchesStatus =
-      statusFilter === "all" || user.status === statusFilter
 
-    return matchesSearch && matchesRole && matchesStatus
+    return matchesSearch && matchesRole
   })
 
   const stats = {
     total: users.length,
-    active: users.filter((u) => u.status === "active").length,
     verified: users.filter((u) => u.verified).length,
-    suspended: users.filter((u) => u.status === "suspended").length,
   }
 
   return (
@@ -116,24 +100,13 @@ export default function UsersPage() {
 
       <div className="flex-1 space-y-6 p-6">
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {stats.active}
-              </div>
             </CardContent>
           </Card>
 
@@ -146,17 +119,6 @@ export default function UsersPage() {
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
                 {stats.verified}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Suspended</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">
-                {stats.suspended}
               </div>
             </CardContent>
           </Card>
@@ -193,16 +155,7 @@ export default function UsersPage() {
                   <option value="admin">Admin</option>
                 </Select>
 
-                {/* Status Filter */}
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="banned">Banned</option>
-                </Select>
+
               </div>
 
               {/* Export Button */}
@@ -223,13 +176,12 @@ export default function UsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Reports</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Last Active</TableHead>
+                   <TableHead>User</TableHead>
+                   <TableHead>Contact</TableHead>
+                   <TableHead>Role</TableHead>
+                   <TableHead>Reports</TableHead>
+                   <TableHead>Joined</TableHead>
+                   <TableHead>Last Active</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -266,9 +218,8 @@ export default function UsersPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>{getStatusBadge(user.status)}</TableCell>
-                    <TableCell>
+                     <TableCell>{getRoleBadge(user.role)}</TableCell>
+                     <TableCell>
                       <span className="font-medium">{user.reportsCount}</span>
                     </TableCell>
                     <TableCell>
