@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogPortal, DialogOverlay, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/table"
 import {
   Search,
-  Filter,
   Download,
   Eye,
   Edit,
@@ -89,6 +89,37 @@ export default function IncidentsPage() {
     investigating: reports.filter((r) => r.status === "in-progress").length,
     resolved: reports.filter((r) => r.status === "resolved").length,
   }
+
+  // Dialog state for editing status
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [selectedReport, setSelectedReport] = useState<DatabaseReport | null>(null)
+  type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled"
+  const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
+  const [saving, setSaving] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
+
+  const handleSaveStatus = async () => {
+    if (!selectedReport) return
+    if (editedStatus === (selectedReport.status ?? 'pending')) {
+      setIsEditOpen(false)
+      setSelectedReport(null)
+      return
+    }
+    setSaving(true)
+    setUpdateError(null)
+    try {
+      await updateReportStatus(selectedReport.id, editedStatus)
+      setIsEditOpen(false)
+      setSelectedReport(null)
+    } catch (err) {
+      console.error("Failed to update status", err)
+      setUpdateError(err instanceof Error ? err.message : 'Failed to update status')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveDisabled = saving || (selectedReport && editedStatus === (selectedReport.status ?? 'pending'))
 
   return (
     <div className="flex flex-col">
@@ -302,7 +333,11 @@ export default function IncidentsPage() {
                             <Button variant="ghost" size="icon">
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" onClick={() => {
+                              setSelectedReport(report)
+                              setEditedStatus(report.status ?? "pending")
+                              setIsEditOpen(true)
+                            }} title="Edit status">
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon">
@@ -319,7 +354,50 @@ export default function IncidentsPage() {
           </>
         )}
       </div>
+
+      <Dialog open={isEditOpen} onOpenChange={(open) => {
+        if (!saving && !open) {
+          setIsEditOpen(false)
+          setSelectedReport(null)
+        } else {
+          setIsEditOpen(open)
+        }
+      }}>
+        <DialogPortal>
+          <DialogOverlay />
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Status</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <div className="text-sm text-muted-foreground">Report</div>
+                <div className="font-medium">{selectedReport?.incident_title}</div>
+                <div className="text-xs text-muted-foreground">#{String(selectedReport?.id ?? "").slice(-8)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-2">Status</div>
+                <Select value={editedStatus} onChange={(e) => setEditedStatus(e.target.value)}>
+                  <option value="pending">Pending</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="cancelled">Cancelled</option>
+                </Select>
+              </div>
+              {updateError && (
+                <div className="text-sm text-red-600 border border-red-300 rounded p-2 bg-red-50">
+                  {updateError}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { if (!saving) { setIsEditOpen(false); setSelectedReport(null) } }} disabled={saving}>Cancel</Button>
+              <Button onClick={handleSaveStatus} disabled={saveDisabled}>{saving ? "Saving..." : (selectedReport && editedStatus === (selectedReport.status ?? 'pending') ? 'No Changes' : 'Save')}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
     </div>
   )
 }
-
