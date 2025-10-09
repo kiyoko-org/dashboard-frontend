@@ -118,6 +118,44 @@ export interface Database {
 					badge_number?: string | null
 				}
 			}
+			emergency_calls: {
+				Row: {
+					id: string
+					user_id: string
+					called_number: string
+					caller_number: string | null
+					call_type: 'police' | 'fire' | 'medical' | 'general'
+					call_timestamp: string
+					location_lat: number | null
+					location_lng: number | null
+					outcome: string
+					created_at: string
+				}
+				Insert: {
+					id?: string
+					user_id: string
+					called_number: string
+					caller_number?: string | null
+					call_type?: 'police' | 'fire' | 'medical' | 'general'
+					call_timestamp?: string
+					location_lat?: number | null
+					location_lng?: number | null
+					outcome?: string
+					created_at?: string
+				}
+				Update: {
+					id?: string
+					user_id?: string
+					called_number?: string
+					caller_number?: string | null
+					call_type?: 'police' | 'fire' | 'medical' | 'general'
+					call_timestamp?: string
+					location_lat?: number | null
+					location_lng?: number | null
+					outcome?: string
+					created_at?: string
+				}
+			}
 		}
 	}
 }
@@ -161,4 +199,9 @@ export type ReportInsert = Database['public']['Tables']['reports']['Insert']
 
 // Update type for updating existing reports
 export type ReportUpdate = Database['public']['Tables']['reports']['Update']
+
+// Emergency call types
+export type DatabaseEmergency = Database['public']['Tables']['emergency_calls']['Row']
+export type EmergencyInsert = Database['public']['Tables']['emergency_calls']['Insert']
+export type EmergencyUpdate = Database['public']['Tables']['emergency_calls']['Update']
 
