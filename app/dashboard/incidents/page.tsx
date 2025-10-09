@@ -261,7 +261,7 @@ export default function IncidentsPage() {
                       <TableHead>Category</TableHead>
                       <TableHead>Reporter</TableHead>
                       <TableHead>Date & Time</TableHead>
-                      <TableHead>Location</TableHead>
+                       <TableHead className="min-w-[18rem]">Location</TableHead>
                       <TableHead>Severity</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -317,15 +317,15 @@ export default function IncidentsPage() {
                             {report.incident_time}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-start gap-1">
-                            <MapPin className="h-3 w-3 mt-1 text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm">
-                              {report.street_address}, {report.city}, {report.province}
-                              {report.nearby_landmark && ` (${report.nearby_landmark})`}
-                            </span>
-                          </div>
-                        </TableCell>
+                         <TableCell className="min-w-[18rem]">
+                           <div className="flex items-start gap-1">
+                             <MapPin className="h-3 w-3 mt-1 text-muted-foreground flex-shrink-0" />
+                             <span className="text-sm">
+                               {report.street_address}, {report.city}, {report.province}
+                               {report.nearby_landmark && ` (${report.nearby_landmark})`}
+                             </span>
+                           </div>
+                         </TableCell>
                         <TableCell>{getSeverityBadge(report.priority)}</TableCell>
                         <TableCell>{getStatusBadge(report.status)}</TableCell>
                         <TableCell>
@@ -377,7 +377,7 @@ export default function IncidentsPage() {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-2">Status</div>
-                <Select value={editedStatus} onChange={(e) => setEditedStatus(e.target.value)}>
+                 <Select value={editedStatus} onChange={(e) => setEditedStatus(e.target.value as ReportStatus)}>
                   <option value="pending">Pending</option>
                   <option value="assigned">Assigned</option>
                   <option value="in-progress">In Progress</option>
