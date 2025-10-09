@@ -1,15 +1,35 @@
 "use client"
 
+import { useMemo } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Bell, AlertTriangle } from "lucide-react"
+import { useEmergencies } from "@/lib/new/useEmergencies"
 
 export default function EmergencyPage() {
+  const { emergencies, loading, error, refetch } = useEmergencies()
+
+  const activeCount = useMemo(
+    () => emergencies.filter((e) => e.outcome !== "resolved").length,
+    [emergencies]
+  )
+
+  const resolvedToday = useMemo(() => {
+    const todayStr = new Date().toDateString()
+    return emergencies.filter((e) => {
+      const created = new Date(e.created_at)
+      return created.toDateString() === todayStr && e.outcome === "resolved"
+    }).length
+  }, [emergencies])
+
+  // Placeholder: compute avg response time if you have that data
+  const avgResponseTime = "4.2 min"
+
   return (
     <div className="flex flex-col">
       <Header title="Emergency Response Coordination" />
-      
+
       <div className="flex-1 space-y-6 p-6">
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
@@ -17,7 +37,7 @@ export default function EmergencyPage() {
               <CardTitle className="text-sm font-medium">Active Emergencies</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">3</div>
+              <div className="text-2xl font-bold text-red-600">{loading ? "…" : activeCount}</div>
             </CardContent>
           </Card>
 
@@ -26,7 +46,7 @@ export default function EmergencyPage() {
               <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">4.2 min</div>
+              <div className="text-2xl font-bold">{avgResponseTime}</div>
             </CardContent>
           </Card>
 
@@ -35,7 +55,7 @@ export default function EmergencyPage() {
               <CardTitle className="text-sm font-medium">Resolved Today</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">12</div>
+              <div className="text-2xl font-bold text-green-600">{loading ? "…" : resolvedToday}</div>
             </CardContent>
           </Card>
 
@@ -54,14 +74,45 @@ export default function EmergencyPage() {
             <CardTitle>Real-Time Emergency Monitoring</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
-              <li>Real-time emergency alert monitoring</li>
-              <li>Dispatch coordination with emergency services</li>
-              <li>Emergency contact verification</li>
-              <li>Mass alert/notification system</li>
-              <li>Emergency response time tracking</li>
-              <li>Integration with 911/local authorities</li>
-            </ul>
+            {loading ? (
+              <div className="text-sm text-muted-foreground">Loading emergency calls…</div>
+            ) : error ? (
+              <div className="text-sm text-red-600">{error}</div>
+            ) : emergencies.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No emergency calls found.</div>
+            ) : (
+              <ul className="divide-y">
+                {emergencies.map((e) => {
+                  return (
+                    <li key={e.id} className="py-3 flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-red-500" />
+                          <span className="font-medium text-sm">
+                            {e.call_type ?? "general"} — {e.called_number}
+                          </span>
+                          <Badge variant="secondary" className="ml-2">
+                            {e.outcome}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        <button
+                          className="text-sm underline"
+                          onClick={() => {
+                            // simple manual refetch — better actions (view details, update outcome) can be added
+                            refetch()
+                          }}
+                        >
+                          Refresh
+                        </button>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>
