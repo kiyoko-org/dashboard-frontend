@@ -16,15 +16,12 @@ import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import { useState } from "react"
-import { DialogClose } from "@radix-ui/react-dialog"
 
 export default function HotlinesPage() {
 	const { hotlines, addHotline, updateHotline, deleteHotline } = useHotlines()
@@ -45,19 +42,22 @@ export default function HotlinesPage() {
 			}}>
 				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
-						<DialogTitle>{editingHotline ? "Edit Hotline" : "Add Hotline"}</DialogTitle>
+						<DialogTitle>{editingHotline && editingHotline > 0 ? "Edit Hotline" : "Add Hotline"}</DialogTitle>
 						<DialogDescription>
-							{editingHotline ? `Editing hotline: ${getHotline(editingHotline)?.name}` : "Add a new hotline"}
+							{editingHotline && editingHotline > 0 ? `Editing hotline: ${getHotline(editingHotline)?.name}` : "Add a new hotline"}
 						</DialogDescription>
 					</DialogHeader>
 				</DialogContent>
 			</Dialog>
 
 			<Card className="m-4">
-				<CardHeader>
+				<CardHeader className="flex flex-row items-center justify-between">
 					<CardTitle>
 						Hotlines {hotlines.length > 0 ? `(${hotlines.length})` : ""}
 					</CardTitle>
+					<Button onClick={() => setEditingHotline(0)}>
+						Add Hotline
+					</Button>
 				</CardHeader>
 				<CardContent>
 					<Table>
