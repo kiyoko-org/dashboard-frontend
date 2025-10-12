@@ -1,6 +1,6 @@
 "use client"
 
-import { useHotlines } from "dispatch-lib"
+import { hotlineSchema, useHotlines } from "dispatch-lib"
 
 import {
 	Table,
@@ -23,8 +23,16 @@ import { Button } from "@/components/ui/button"
 import { MoreHorizontal, Plus } from "lucide-react"
 import { useState } from "react"
 
+import { useForm } from '@tanstack/react-form'
+import { FieldGroup, FieldLabel, FieldError, Field, FieldDescription } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+
+import * as z from "zod"
+import { Textarea } from "@/components/ui/textarea"
+import { uppercaseFirstLetter } from "@/lib/utils"
+
 export default function HotlinesPage() {
-	const { hotlines, addHotline, updateHotline, deleteHotline } = useHotlines()
+	const { hotlines, deleteHotline, addHotline, updateHotline } = useHotlines()
 
 	const [editingHotline, setEditingHotline] = useState<number | null>(null)
 
@@ -32,9 +40,24 @@ export default function HotlinesPage() {
 		return hotlines.find(h => h.id === id)
 	}
 
+	const hotlineForm = useForm({
+		defaultValues: {
+			name: "",
+			description: undefined as string | undefined,
+			phone_number: "",
+		},
+		validators: {
+			onSubmit: hotlineSchema
+		},
+		onSubmit: async ({ value }) => {
+			if (editingHotline && editingHotline > 0) {
+				await updateHotline(editingHotline, value as any)
+			} else await addHotline(value as any)
+		}
+	})
+
 	return (
 		<>
-
 			<Dialog open={editingHotline !== null} onOpenChange={(open) => {
 				if (!open) {
 					setEditingHotline(null)
@@ -47,6 +70,92 @@ export default function HotlinesPage() {
 							{editingHotline && editingHotline > 0 ? `Editing hotline: ${getHotline(editingHotline)?.name}` : "Add a new hotline"}
 						</DialogDescription>
 					</DialogHeader>
+
+					<form
+						onSubmit={(e) => {
+							e.preventDefault()
+							hotlineForm.handleSubmit()
+						}}
+					>
+						<FieldGroup>
+							<hotlineForm.Field
+								name="name"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												aria-invalid={isInvalid}
+												placeholder="Support Line"
+												autoComplete="off"
+											/>
+											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+										</Field>
+									)
+								}}
+							/>
+
+
+							<hotlineForm.Field
+								name="phone_number"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel htmlFor={field.name}>Phone number</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												aria-invalid={isInvalid}
+												placeholder="+639123"
+												autoComplete="off"
+											/>
+											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+										</Field>
+									)
+								}}
+							/>
+
+
+							<hotlineForm.Field
+								name="description"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel htmlFor={field.name}>Description</FieldLabel>
+											<Textarea
+												id={field.name}
+												name={field.name}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												aria-invalid={isInvalid}
+												placeholder="Optional description"
+												autoComplete="off"
+											/>
+											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+										</Field>
+									)
+								}}
+							/>
+
+							<Button type="submit">Submit</Button>
+						</FieldGroup>
+					</form>
+
 				</DialogContent>
 			</Dialog>
 
