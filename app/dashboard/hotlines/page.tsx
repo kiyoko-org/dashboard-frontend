@@ -29,12 +29,14 @@ import { Input } from "@/components/ui/input"
 
 import * as z from "zod"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { uppercaseFirstLetter } from "@/lib/utils"
 
 export default function HotlinesPage() {
 	const { hotlines, deleteHotline, addHotline, updateHotline } = useHotlines()
 
 	const [editingHotline, setEditingHotline] = useState<number | null>(null)
+	const [addOpen, setAddOpen] = useState(false)
 
 	const getHotline = (id: number) => {
 		return hotlines.find(h => h.id === id)
@@ -45,6 +47,7 @@ export default function HotlinesPage() {
 			name: "",
 			description: undefined as string | undefined,
 			phone_number: "",
+			available: true
 		},
 		validators: {
 			onSubmit: hotlineSchema
@@ -53,14 +56,34 @@ export default function HotlinesPage() {
 			if (editingHotline && editingHotline > 0) {
 				await updateHotline(editingHotline, value as any)
 			} else await addHotline(value as any)
+
+			closeDialog()
 		}
 	})
+
+	const closeDialog = () => {
+		setEditingHotline(null)
+		hotlineForm.reset()
+	}
 
 	return (
 		<>
 			<Dialog open={editingHotline !== null} onOpenChange={(open) => {
 				if (!open) {
-					setEditingHotline(null)
+					closeDialog()
+				} else if (editingHotline && editingHotline > 0) {
+					const hotline = getHotline(editingHotline)
+					if (hotline) {
+						hotlineForm.setFieldValue('name', hotline.name)
+						hotlineForm.setFieldValue('description', hotline.description ?? undefined)
+						hotlineForm.setFieldValue('phone_number', hotline.phone_number)
+						hotlineForm.setFieldValue('available', hotline.available ?? true)
+					}
+				} else {
+					hotlineForm.setFieldValue('name', '')
+					hotlineForm.setFieldValue('description', undefined)
+					hotlineForm.setFieldValue('phone_number', '')
+					hotlineForm.setFieldValue('available', true)
 				}
 			}}>
 				<DialogContent className="sm:max-w-2xl">
@@ -147,6 +170,25 @@ export default function HotlinesPage() {
 												autoComplete="off"
 											/>
 											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+										</Field>
+									)
+								}}
+							/>
+
+							<hotlineForm.Field
+								name="available"
+								children={(field) => {
+									return (
+										<Field>
+											<div className="flex items-center gap-2">
+												<Switch
+													id={field.name}
+													name={field.name}
+													checked={field.state.value}
+													onCheckedChange={(checked) => field.handleChange(checked)}
+												/>
+												<FieldLabel htmlFor={field.name}>Available</FieldLabel>
+											</div>
 										</Field>
 									)
 								}}
