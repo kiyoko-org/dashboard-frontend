@@ -20,11 +20,11 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Plus } from "lucide-react"
+import { MoreHorizontal, } from "lucide-react"
 import { useState } from "react"
 
 import { useForm } from '@tanstack/react-form'
-import { FieldGroup, FieldLabel, FieldError, Field, FieldDescription } from "@/components/ui/field"
+import { FieldGroup, FieldLabel, FieldError, Field, } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
 import { Textarea } from "@/components/ui/textarea"
@@ -386,6 +386,11 @@ export default function HotlinesPage() {
 									</TableCell>
 								</TableRow>
 							})}
+							{hotlines.length === 0 && <TableRow>
+								<TableCell colSpan={5} className="text-center">
+									No hotlines found.
+								</TableCell>
+							</TableRow>}
 						</TableBody>
 					</Table>
 				</CardContent>

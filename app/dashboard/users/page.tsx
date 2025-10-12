@@ -24,7 +24,6 @@ import {
   CheckCircle,
   User,
   Mail,
-  Phone,
   Calendar,
 } from "lucide-react"
 import { useProfiles } from "@/lib/new/useProfiles"
@@ -205,10 +204,6 @@ export default function UsersPage() {
                         <div className="flex items-center gap-1 text-sm">
                           <Mail className="h-3 w-3 text-muted-foreground" />
                           {user.email}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Phone className="h-3 w-3 text-muted-foreground" />
-                          {user.phone}
                         </div>
                       </div>
                     </TableCell>
