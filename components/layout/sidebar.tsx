@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useAuthContext } from "dispatch-lib"
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -13,6 +14,7 @@ import {
   Database,
   Archive,
   Phone,
+  LogOut,
 } from "lucide-react"
 
 const navigation = [
@@ -65,6 +67,13 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const { signOut, user } = useAuthContext()
+
+  const handleSignOut = async () => {
+    await signOut()
+    router.push("/login")
+  }
 
   return (
     <div className="flex h-full w-64 flex-col bg-slate-900 text-white">
@@ -97,6 +106,23 @@ export function Sidebar() {
           })}
         </ul>
       </nav>
+
+      {/* User info and sign out */}
+      <div className="border-t border-slate-800 p-4">
+        {user && (
+          <div className="mb-3 px-3 py-2">
+            <p className="text-xs text-slate-400">Signed in as</p>
+            <p className="text-sm font-medium truncate">{user.email}</p>
+          </div>
+        )}
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+        >
+          <LogOut className="h-5 w-5" />
+          Sign Out
+        </button>
+      </div>
     </div>
   )
 }

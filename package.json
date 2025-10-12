@@ -21,7 +21,8 @@
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.5.5",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+		"dispatch-lib": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

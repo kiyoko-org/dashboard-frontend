@@ -7,8 +7,6 @@ import {
   Users,
   Target,
   Package,
-  TrendingUp,
-  TrendingDown,
   Clock,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"

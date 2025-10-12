@@ -1,13 +1,12 @@
-import type { Metadata } from "next"
+"use client"
+
+import { AuthProvider } from "dispatch-lib"
 import { Inter } from "next/font/google"
+import { DispatchClientProvider } from "@/components/providers/dispatch-client-provider"
+import { AuthGuard } from "@/components/providers/auth-guard"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
-
-export const metadata: Metadata = {
-  title: "Dispatch Admin Dashboard",
-  description: "Admin dashboard for Dispatch community safety app",
-}
 
 export default function RootLayout({
   children,
@@ -17,9 +16,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        {children}
+        <DispatchClientProvider>
+          <AuthProvider>
+            <AuthGuard>
+              {children}
+            </AuthGuard>
+          </AuthProvider>
+        </DispatchClientProvider>
       </body>
     </html>
   )
 }
-
