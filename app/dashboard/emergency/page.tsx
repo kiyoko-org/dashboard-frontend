@@ -23,8 +23,7 @@ export default function EmergencyPage() {
     }).length
   }, [emergencies])
 
-  // Placeholder: compute avg response time if you have that data
-  const avgResponseTime = "4.2 min"
+  const avgResponseTime = "0 min"
 
   return (
     <div className="flex flex-col">
@@ -64,7 +63,7 @@ export default function EmergencyPage() {
               <CardTitle className="text-sm font-medium">Emergency Contacts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">45</div>
+              <div className="text-2xl font-bold">0</div>
             </CardContent>
           </Card>
         </div>

@@ -16,22 +16,6 @@ import { useReports } from "@/lib/new/useReports"
 import type { DatabaseReport } from "@/lib/new/types"
 
 export default function DashboardPage() {
-  // Mock stats - unchanged
-  const stats = {
-    totalIncidents: 1247,
-    incidentsChange: "+12%",
-    incidentsUp: true,
-    activeUsers: 8392,
-    usersChange: "+23%",
-    usersUp: true,
-    activeBounties: 34,
-    bountiesChange: "-5%",
-    bountiesUp: false,
-    lostFoundItems: 156,
-    itemsChange: "+8%",
-    itemsUp: true,
-  }
-
   // Use the reports hook
   const { reports, loading, error } = useReports()
 
@@ -124,65 +108,45 @@ export default function DashboardPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activeUsers}</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                {stats.usersUp ? (
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                ) : (
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                )}
-                <span className={stats.usersUp ? "text-green-600" : "text-red-600"}>
-                  {stats.usersChange}
-                </span>
-                {" "}from last month
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Total active users
               </p>
             </CardContent>
           </Card>
 
-          {/* Active Bounties */}
+          {/* Resolved Cases */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Active Bounties
+                Resolved Cases
               </CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activeBounties}</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                {stats.bountiesUp ? (
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                ) : (
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                )}
-                <span className={stats.bountiesUp ? "text-green-600" : "text-red-600"}>
-                  {stats.bountiesChange}
-                </span>
-                {" "}from last month
+              <div className="text-2xl font-bold text-green-600">
+                {reports?.filter((r) => r.status === "resolved").length ?? 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Successfully resolved
               </p>
             </CardContent>
           </Card>
 
-          {/* Lost & Found Items */}
+          {/* Pending Cases */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Lost & Found Items
+                Pending Cases
               </CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.lostFoundItems}</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                {stats.itemsUp ? (
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                ) : (
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                )}
-                <span className={stats.itemsUp ? "text-green-600" : "text-red-600"}>
-                  {stats.itemsChange}
-                </span>
-                {" "}from last month
+              <div className="text-2xl font-bold text-yellow-600">
+                {reports?.filter((r) => r.status === "pending").length ?? 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Awaiting action
               </p>
             </CardContent>
           </Card>
@@ -251,7 +215,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12 min</div>
+              <div className="text-2xl font-bold">0 min</div>
               <p className="text-xs text-muted-foreground">
                 Average response time
               </p>
@@ -265,7 +229,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">87%</div>
+              <div className="text-2xl font-bold">0%</div>
               <p className="text-xs text-muted-foreground">
                 Incidents resolved
               </p>
@@ -279,7 +243,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">99.9%</div>
+              <div className="text-2xl font-bold">100%</div>
               <p className="text-xs text-muted-foreground">
                 Last 30 days
               </p>

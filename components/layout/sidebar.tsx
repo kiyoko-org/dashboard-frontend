@@ -7,18 +7,12 @@ import {
   LayoutDashboard,
   AlertTriangle,
   Users,
-  Target,
-  Package,
   Bell,
-  Building2,
-  Shield,
-  FileText,
   Settings,
-  MessageSquare,
-  FileSearch,
-  Scale,
   BadgeCheck,
-  MapPin,
+  Database,
+  Archive,
+  Phone,
 } from "lucide-react"
 
 const navigation = [
@@ -28,24 +22,9 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    name: "Incidents",
-    href: "/dashboard/incidents",
-    icon: AlertTriangle,
-  },
-  {
     name: "Users",
     href: "/dashboard/users",
     icon: Users,
-  },
-  {
-    name: "Bounties",
-    href: "/dashboard/bounties",
-    icon: Target,
-  },
-  {
-    name: "Lost & Found",
-    href: "/dashboard/lost-found",
-    icon: Package,
   },
   {
     name: "Emergency Response",
@@ -53,34 +32,14 @@ const navigation = [
     icon: Bell,
   },
   {
-    name: "Community Resources",
-    href: "/dashboard/resources",
-    icon: Building2,
+    name: "Incidents",
+    href: "/dashboard/incidents",
+    icon: AlertTriangle,
   },
   {
-    name: "Content Moderation",
-    href: "/dashboard/moderation",
-    icon: Shield,
-  },
-  {
-    name: "Reports & Analytics",
-    href: "/dashboard/reports",
-    icon: FileText,
-  },
-  {
-    name: "Communications",
-    href: "/dashboard/communications",
-    icon: MessageSquare,
-  },
-  {
-    name: "Audit Logs",
-    href: "/dashboard/audit-logs",
-    icon: FileSearch,
-  },
-  {
-    name: "Legal & Compliance",
-    href: "/dashboard/legal",
-    icon: Scale,
+    name: "Hotlines",
+    href: "/dashboard/hotlines",
+    icon: Phone,
   },
   {
     name: "Verification",
@@ -88,9 +47,14 @@ const navigation = [
     icon: BadgeCheck,
   },
   {
-    name: "Geofencing",
-    href: "/dashboard/geofencing",
-    icon: MapPin,
+    name: "Database",
+    href: "/dashboard/database",
+    icon: Database,
+  },
+  {
+    name: "Archive",
+    href: "/dashboard/archive",
+    icon: Archive,
   },
   {
     name: "Settings",

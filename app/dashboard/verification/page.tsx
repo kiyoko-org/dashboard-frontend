@@ -15,7 +15,7 @@ export default function VerificationPage() {
               <CardTitle className="text-sm font-medium">Pending Verification</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">12</div>
+              <div className="text-2xl font-bold text-yellow-600">0</div>
             </CardContent>
           </Card>
 
@@ -24,7 +24,7 @@ export default function VerificationPage() {
               <CardTitle className="text-sm font-medium">Verified Users</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">456</div>
+              <div className="text-2xl font-bold text-green-600">0</div>
             </CardContent>
           </Card>
 
@@ -33,25 +33,11 @@ export default function VerificationPage() {
               <CardTitle className="text-sm font-medium">Verification Requests</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">18</div>
+              <div className="text-2xl font-bold">0</div>
             </CardContent>
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Verification Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
-              <li>Identity verification queue</li>
-              <li>Document verification</li>
-              <li>Badge/credential management</li>
-              <li>Trust score algorithms configuration</li>
-              <li>Verification appeal handling</li>
-            </ul>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

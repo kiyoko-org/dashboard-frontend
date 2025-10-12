@@ -20,7 +20,7 @@ import {
   Download,
   Eye,
   Edit,
-  Ban,
+  Archive,
   CheckCircle,
   User,
   Mail,
@@ -136,7 +136,6 @@ export default function UsersPage() {
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Search users..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9"
@@ -148,11 +147,6 @@ export default function UsersPage() {
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
                 >
-                  <option value="all">All Roles</option>
-                  <option value="citizen">Citizen</option>
-                  <option value="verified_citizen">Verified Citizen</option>
-                  <option value="moderator">Moderator</option>
-                  <option value="admin">Admin</option>
                 </Select>
 
 
@@ -242,9 +236,9 @@ export default function UsersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          title="Suspend User"
+                          title="Archive User"
                         >
-                          <Ban className="h-4 w-4 text-yellow-500" />
+                          <Archive className="h-4 w-4 text-orange-500" />
                         </Button>
                       </div>
                     </TableCell>

@@ -21,7 +21,7 @@ import {
   Download,
   Eye,
   Edit,
-  Trash2,
+  Archive,
   MapPin,
   Calendar,
   User,
@@ -200,7 +200,6 @@ export default function IncidentsPage() {
                     <div className="relative flex-1 max-w-sm">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        placeholder="Search incidents..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-9"
@@ -212,12 +211,6 @@ export default function IncidentsPage() {
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
                     >
-                      <option value="all">All Status</option>
-                      <option value="pending">Pending</option>
-                      <option value="assigned">Assigned</option>
-                      <option value="in-progress">In Progress</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="cancelled">Cancelled</option>
                     </Select>
 
                     {/* Category Filter */}
@@ -225,14 +218,6 @@ export default function IncidentsPage() {
                       value={categoryFilter}
                       onChange={(e) => setCategoryFilter(e.target.value)}
                     >
-                      <option value="all">All Categories</option>
-                      <option value="Theft">Theft</option>
-                      <option value="Accident">Accident</option>
-                      <option value="Vandalism">Vandalism</option>
-                      <option value="Suspicious Activity">
-                        Suspicious Activity
-                      </option>
-                      <option value="Missing Person">Missing Person</option>
                     </Select>
                   </div>
 
@@ -340,8 +325,8 @@ export default function IncidentsPage() {
                             }} title="Edit status">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="h-4 w-4 text-red-500" />
+                            <Button variant="ghost" size="icon" title="Archive">
+                              <Archive className="h-4 w-4 text-orange-500" />
                             </Button>
                           </div>
                         </TableCell>
@@ -378,11 +363,6 @@ export default function IncidentsPage() {
               <div>
                 <div className="text-sm text-muted-foreground mb-2">Status</div>
                  <Select value={editedStatus} onChange={(e) => setEditedStatus(e.target.value as ReportStatus)}>
-                  <option value="pending">Pending</option>
-                  <option value="assigned">Assigned</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="cancelled">Cancelled</option>
                 </Select>
               </div>
               {updateError && (

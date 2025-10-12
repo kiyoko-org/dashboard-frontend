@@ -21,7 +21,6 @@ export function Header({ title }: HeaderProps) {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             type="search"
-            placeholder="Search..."
             className="w-64 pl-9"
           />
         </div>
