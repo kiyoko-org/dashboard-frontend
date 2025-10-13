@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectTrigger, SelectContent, SelectGroup, SelectItem, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useForm } from "@tanstack/react-form"
-import { Database, X, Pencil } from "lucide-react"
+import { Database, X, Pencil, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { FieldGroup, FieldLabel, FieldError, Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -33,7 +33,7 @@ export default function DatabasePage() {
 		}
 	})
 
-	const { categories, loading, addCategory, updateCategory } = useCategories()
+	const { categories, loading, addCategory, updateCategory, deleteCategory } = useCategories()
 
 	useEffect(() => {
 		console.log(categories)
@@ -89,6 +89,12 @@ export default function DatabasePage() {
 		setEditSubcategories(category.sub_categories || [])
 		editForm.setFieldValue("name", category.name)
 		setIsEditDialogOpen(true)
+	}
+
+	const handleDelete = async (id: number) => {
+		if (confirm("Are you sure you want to delete this category?")) {
+			await deleteCategory(id)
+		}
 	}
 
 	const [selectedTable, setSelectedTable] = useState<tableType>("categories")
@@ -253,13 +259,22 @@ export default function DatabasePage() {
 												)}
 											</TableCell>
 											<TableCell>
-												<Button
-													variant="outline"
-													size="sm"
-													onClick={() => openEditDialog(category)}
-												>
-													<Pencil className="h-4 w-4" />
-												</Button>
+												<div className="flex gap-2">
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => openEditDialog(category)}
+													>
+														<Pencil className="h-4 w-4" />
+													</Button>
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => handleDelete(category.id)}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
 											</TableCell>
 										</TableRow>
 									))}
