@@ -68,17 +68,20 @@ export default function IncidentsPage() {
   }
 
   const filteredIncidents = reports.filter((report) => {
+    const q = (searchQuery ?? '').toLowerCase()
+    const title = String(report.incident_title ?? '').toLowerCase()
+    const street = String(report.street_address ?? '').toLowerCase()
+    const city = String(report.city ?? '').toLowerCase()
+    const category = String(report.incident_category ?? '').toLowerCase()
+
     const matchesSearch =
-      report.incident_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.street_address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.incident_category.toLowerCase().includes(searchQuery.toLowerCase())
+      title.includes(q) || street.includes(q) || city.includes(q) || category.includes(q)
 
     const matchesStatus =
-      statusFilter === "all" || report.status === statusFilter
+      statusFilter === "all" || (report.status ?? '').toString() === statusFilter
 
     const matchesCategory =
-      categoryFilter === "all" || report.incident_category === categoryFilter
+      categoryFilter === "all" || (report.incident_category ?? '') === categoryFilter
 
     return matchesSearch && matchesStatus && matchesCategory
   })
