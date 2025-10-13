@@ -1,323 +1,361 @@
 "use client"
 
-import { useState } from "react"
 import { Header } from "@/components/layout/header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectTrigger, SelectContent, SelectGroup, SelectItem, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { useForm } from "@tanstack/react-form"
+import { Database, X, Pencil } from "lucide-react"
+import { useEffect, useState } from "react"
+import { FieldGroup, FieldLabel, FieldError, Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
-import { Dialog, DialogPortal, DialogOverlay, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Plus,
-  Edit,
-  Archive,
-  Database as DatabaseIcon,
-  X,
-} from "lucide-react"
+import { uppercaseFirstLetter } from "@/lib/utils"
+import { useCategories } from "dispatch-lib"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-type ItemType = "status" | "category" | "subcategory" | "role"
-
-interface DatabaseItem {
-  id: string
-  type: ItemType
-  value: string
-  label: string
-  createdAt: string
-}
+type tableType = "categories"
 
 export default function DatabasePage() {
-  const [selectedType, setSelectedType] = useState<ItemType>("status")
-  const [newItemValue, setNewItemValue] = useState("")
-  const [newItemLabel, setNewItemLabel] = useState("")
 
-  // Start with empty data - fresh start
-  const [items, setItems] = useState<DatabaseItem[]>([])
-  
-  // Edit dialog state
-  const [isEditOpen, setIsEditOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<DatabaseItem | null>(null)
-  const [editValue, setEditValue] = useState("")
-  const [editLabel, setEditLabel] = useState("")
+	const categoriesForm = useForm({
+		defaultValues: {
+			name: ""
+		},
+		onSubmit: async ({ value }) => {
+			await addCategory({
+				name: value.name,
+				sub_categories: subcategories.length > 0 ? subcategories : []
+			})
+			categoriesForm.reset()
+			setSubcategories([])
+		}
+	})
 
-  const filteredItems = items.filter((item) => item.type === selectedType)
+	const { categories, loading, addCategory, updateCategory } = useCategories()
 
-  // CREATE - Add new item
-  const handleAddItem = () => {
-    if (!newItemValue || !newItemLabel) return
+	useEffect(() => {
+		console.log(categories)
+	}, [categories])
 
-    const newItem: DatabaseItem = {
-      id: Date.now().toString(),
-      type: selectedType,
-      value: newItemValue,
-      label: newItemLabel,
-      createdAt: new Date().toISOString().split("T")[0],
-    }
 
-    setItems([...items, newItem])
-    setNewItemValue("")
-    setNewItemLabel("")
-  }
+	const addSubcategory = () => {
+		if (subcategoryInput.trim()) {
+			setSubcategories([...subcategories, subcategoryInput.trim()])
+			setSubcategoryInput("")
+		}
+	}
 
-  // UPDATE - Edit existing item
-  const handleEditClick = (item: DatabaseItem) => {
-    setEditingItem(item)
-    setEditValue(item.value)
-    setEditLabel(item.label)
-    setIsEditOpen(true)
-  }
+	const removeSubcategory = (index: number) => {
+		setSubcategories(subcategories.filter((_, i) => i !== index))
+	}
 
-  const handleSaveEdit = () => {
-    if (!editingItem || !editValue || !editLabel) return
+	const addEditSubcategory = () => {
+		if (editSubcategoryInput.trim()) {
+			setEditSubcategories([...editSubcategories, editSubcategoryInput.trim()])
+			setEditSubcategoryInput("")
+		}
+	}
 
-    setItems(items.map((item) => 
-      item.id === editingItem.id
-        ? { ...item, value: editValue, label: editLabel }
-        : item
-    ))
+	const removeEditSubcategory = (index: number) => {
+		setEditSubcategories(editSubcategories.filter((_, i) => i !== index))
+	}
 
-    setIsEditOpen(false)
-    setEditingItem(null)
-    setEditValue("")
-    setEditLabel("")
-  }
+	const editForm = useForm({
+		defaultValues: {
+			name: ""
+		},
+		onSubmit: async ({ value }) => {
 
-  const handleCancelEdit = () => {
-    setIsEditOpen(false)
-    setEditingItem(null)
-    setEditValue("")
-    setEditLabel("")
-  }
+			console.log(value)
+			console.log(editSubcategories)
 
-  // ARCHIVE - Archive/delete item
-  const handleArchiveItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id))
-  }
+			if (editingCategory) {
+				await updateCategory(Number(editingCategory.id), {
+					name: value.name,
+					sub_categories: editSubcategories.length > 0 ? editSubcategories : []
+				})
+				setIsEditDialogOpen(false)
+				setEditingCategory(null)
+				setEditSubcategories([])
+				editForm.reset()
+			}
+		}
+	})
 
-  const stats = {
-    statuses: items.filter((i) => i.type === "status").length,
-    categories: items.filter((i) => i.type === "category").length,
-    subcategories: items.filter((i) => i.type === "subcategory").length,
-    roles: items.filter((i) => i.type === "role").length,
-  }
+	const openEditDialog = (category: { id: number; name: string; sub_categories: string[] | null }) => {
+		setEditingCategory(category)
+		setEditSubcategories(category.sub_categories || [])
+		editForm.setFieldValue("name", category.name)
+		setIsEditDialogOpen(true)
+	}
 
-  return (
-    <div className="flex flex-col">
-      <Header title="Database Management" />
+	const [selectedTable, setSelectedTable] = useState<tableType>("categories")
+	const [subcategories, setSubcategories] = useState<string[]>([])
+	const [subcategoryInput, setSubcategoryInput] = useState("")
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+	const [editingCategory, setEditingCategory] = useState<{ id: number; name: string; sub_categories: string[] | null } | null>(null)
+	const [editSubcategories, setEditSubcategories] = useState<string[]>([])
+	const [editSubcategoryInput, setEditSubcategoryInput] = useState("")
 
-      <div className="flex-1 space-y-6 p-6">
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Statuses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.statuses}</div>
-            </CardContent>
-          </Card>
+	return (
+		<>
+			<Header title="Database" />
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Categories</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.categories}</div>
-            </CardContent>
-          </Card>
+			<div className="p-4">
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Subcategories</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.subcategories}</div>
-            </CardContent>
-          </Card>
+				<Card>
+					<CardHeader>
+						<CardTitle>
+							<Database className="inline-block mr-2 mb-1" />
+							Add a new item
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Roles</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.roles}</div>
-            </CardContent>
-          </Card>
-        </div>
+							<SelectGroup>
+								Select Table
+								<Select>
+									<SelectTrigger className="w-[180px]">
+										<SelectValue placeholder={selectedTable} />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="categories">Categories</SelectItem>
+									</SelectContent>
+								</Select>
+							</SelectGroup>
 
-        {/* Add New Item */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DatabaseIcon className="h-5 w-5" />
-              Add New Item
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4 md:flex-row md:items-end">
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-2 block">Type</label>
-                <Select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value as ItemType)}
-                >
-                  <option value="status">Status</option>
-                  <option value="category">Category</option>
-                  <option value="subcategory">Subcategory</option>
-                  <option value="role">Role</option>
-                </Select>
-              </div>
 
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-2 block">Value</label>
-                <Input
-                  value={newItemValue}
-                  onChange={(e) => setNewItemValue(e.target.value)}
-                />
-              </div>
+							<Separator className="my-4" />
 
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-2 block">Label</label>
-                <Input
-                  value={newItemLabel}
-                  onChange={(e) => setNewItemLabel(e.target.value)}
-                />
-              </div>
+							{selectedTable === "categories" && (
 
-              <Button onClick={handleAddItem}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+								<form
+									onSubmit={(e) => {
+										e.preventDefault()
+										categoriesForm.handleSubmit()
+									}}
+								>
+									<FieldGroup>
+										<categoriesForm.Field
+											name="name"
+											children={(field) => {
+												const isInvalid =
+													field.state.meta.isTouched && !field.state.meta.isValid
+												return (
+													<Field data-invalid={isInvalid}>
+														<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
+														<Input
+															id={field.name}
+															name={field.name}
+															value={field.state.value}
+															onBlur={field.handleBlur}
+															onChange={(e) => field.handleChange(e.target.value)}
+															aria-invalid={isInvalid}
+															placeholder="Fire"
+															autoComplete="off"
+															required
+														/>
+														{isInvalid && <FieldError errors={field.state.meta.errors} />}
+													</Field>
+												)
+											}}
+										/>
 
-        {/* Items Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Items
-                ({filteredItems.length})
-              </CardTitle>
-              <Select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value as ItemType)}
-              >
-                <option value="status">Status</option>
-                <option value="category">Category</option>
-                <option value="subcategory">Subcategory</option>
-                <option value="role">Role</option>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Value</TableHead>
-                  <TableHead>Label</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Created Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No items found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-mono text-sm">
-                        {item.value}
-                      </TableCell>
-                      <TableCell className="font-medium">{item.label}</TableCell>
-                      <TableCell className="capitalize">{item.type}</TableCell>
-                      <TableCell>{item.createdAt}</TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            title="Edit"
-                            onClick={() => handleEditClick(item)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Archive"
-                            onClick={() => handleArchiveItem(item.id)}
-                          >
-                            <Archive className="h-4 w-4 text-orange-500" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+										<Field>
+											<FieldLabel>Subcategories</FieldLabel>
+											<div className="flex gap-2">
+												<Input
+													value={subcategoryInput}
+													onChange={(e) => setSubcategoryInput(e.target.value)}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter') {
+															e.preventDefault()
+															addSubcategory()
+														}
+													}}
+													placeholder="House Fire"
+													autoComplete="off"
+												/>
+												<Button
+													type="button"
+													onClick={addSubcategory}
+												>
+													Add
+												</Button>
+											</div>
+											{subcategories.length > 0 && (
+												<div className="mt-2 flex flex-wrap gap-2">
+													{subcategories.map((sub, index) => (
+														<div
+															key={index}
+															className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1 rounded-md"
+														>
+															<span>{sub}</span>
+															<button
+																type="button"
+																onClick={() => removeSubcategory(index)}
+																className="ml-1 hover:text-destructive"
+															>
+																<X className="h-4 w-4" />
+															</button>
+														</div>
+													))}
+												</div>
+											)}
+										</Field>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => {
-        if (!open) handleCancelEdit()
-      }}>
-        <DialogPortal>
-          <DialogOverlay />
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Item</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Type</label>
-                <div className="text-sm text-muted-foreground capitalize">
-                  {editingItem?.type}
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Value</label>
-                <Input
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Label</label>
-                <Input
-                  value={editLabel}
-                  onChange={(e) => setEditLabel(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={handleCancelEdit}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveEdit}>
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </DialogPortal>
-      </Dialog>
-    </div>
-  )
+										<Button type="submit">Submit</Button>
+									</FieldGroup>
+								</form>
+							)}
+						</div>
+					</CardContent>
+				</Card>
+
+				{selectedTable === "categories" && categories && categories.length > 0 && (
+					<Card className="mt-4">
+						<CardHeader>
+							<CardTitle>
+								<Database className="inline-block mr-2 mb-1" />
+								Categories
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Name</TableHead>
+										<TableHead>Subcategories</TableHead>
+										<TableHead>Actions</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{categories.map((category) => (
+										<TableRow key={category.id}>
+											<TableCell>{category.name}</TableCell>
+											<TableCell>
+												{category.sub_categories && category.sub_categories.length > 0 ? (
+													<div className="flex flex-wrap gap-1">
+														{category.sub_categories.map((sub: string, index: number) => (
+															<span
+																key={index}
+																className="bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm"
+															>
+																{sub}
+															</span>
+														))}
+													</div>
+												) : (
+													<span className="text-muted-foreground">None</span>
+												)}
+											</TableCell>
+											<TableCell>
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => openEditDialog(category)}
+												>
+													<Pencil className="h-4 w-4" />
+												</Button>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</CardContent>
+					</Card>
+				)}
+
+			</div >
+
+			<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Edit Category</DialogTitle>
+					</DialogHeader>
+					<form
+						onSubmit={(e) => {
+							e.preventDefault()
+							editForm.handleSubmit()
+						}}
+					>
+						<FieldGroup>
+							<editForm.Field
+								name="name"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												aria-invalid={isInvalid}
+												placeholder="Fire"
+												autoComplete="off"
+												required
+											/>
+											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+										</Field>
+									)
+								}}
+							/>
+
+							<Field>
+								<FieldLabel>Subcategories</FieldLabel>
+								<div className="flex gap-2">
+									<Input
+										value={editSubcategoryInput}
+										onChange={(e) => setEditSubcategoryInput(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault()
+												addEditSubcategory()
+											}
+										}}
+										placeholder="House Fire"
+										autoComplete="off"
+									/>
+									<Button
+										type="button"
+										onClick={addEditSubcategory}
+									>
+										Add
+									</Button>
+								</div>
+								{editSubcategories.length > 0 && (
+									<div className="mt-2 flex flex-wrap gap-2">
+										{editSubcategories.map((sub, index) => (
+											<div
+												key={index}
+												className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1 rounded-md"
+											>
+												<span>{sub}</span>
+												<button
+													type="button"
+													onClick={() => removeEditSubcategory(index)}
+													className="ml-1 hover:text-destructive"
+												>
+													<X className="h-4 w-4" />
+												</button>
+											</div>
+										))}
+									</div>
+								)}
+							</Field>
+
+							<Button type="submit">Update</Button>
+						</FieldGroup>
+					</form>
+				</DialogContent>
+			</Dialog>
+		</>
+	)
 }
-
