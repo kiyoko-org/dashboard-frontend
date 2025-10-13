@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogPortal, DialogOverlay, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog"
 import {
   Table,
@@ -28,10 +29,13 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { useReports } from "@/lib/new/useReports"
+import { getDispatchClient } from "dispatch-lib"
 import type { DatabaseReport } from "@/lib/new/types"
 
 export default function IncidentsPage() {
-  const { reports, loading, error, updateReportStatus } = useReports()
+  const { reports, loading, error, updateReportStatus, refetch } = useReports()
+  const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set())
+  const [includeArchived, setIncludeArchived] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
@@ -67,7 +71,15 @@ export default function IncidentsPage() {
     )
   }
 
-  const filteredIncidents = reports.filter((report) => {
+  const visibleReports = reports.filter((r) => {
+    const isArchivedFlag = Boolean((r as any)?.archived || (r as any)?.is_archived)
+    const isArchivedStatus = (r.status as any) === 'archived'
+    const isLocallyArchived = archivedIds.has(r.id as string)
+    const isArchived = isArchivedFlag || isArchivedStatus || isLocallyArchived
+    return includeArchived ? true : !isArchived
+  })
+
+  const filteredIncidents = visibleReports.filter((report) => {
     const q = (searchQuery ?? '').toLowerCase()
     const title = String(report.incident_title ?? '').toLowerCase()
     const street = String(report.street_address ?? '').toLowerCase()
@@ -87,10 +99,10 @@ export default function IncidentsPage() {
   })
 
   const stats = {
-    total: reports.length,
-    pending: reports.filter((r) => r.status === "pending").length,
-    investigating: reports.filter((r) => r.status === "in-progress").length,
-    resolved: reports.filter((r) => r.status === "resolved").length,
+    total: visibleReports.length,
+    pending: visibleReports.filter((r) => r.status === "pending").length,
+    investigating: visibleReports.filter((r) => r.status === "in-progress").length,
+    resolved: visibleReports.filter((r) => r.status === "resolved").length,
   }
 
   // Dialog state for editing status
@@ -224,11 +236,17 @@ export default function IncidentsPage() {
                     </Select>
                   </div>
 
-                  {/* Export Button */}
-                  <Button variant="outline">
-                    <Download className="mr-2 h-4 w-4" />
-                    Export
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={includeArchived} onCheckedChange={setIncludeArchived} />
+                      <span className="text-sm text-muted-foreground">Show archived</span>
+                    </div>
+                    {/* Export Button */}
+                    <Button variant="outline">
+                      <Download className="mr-2 h-4 w-4" />
+                      Export
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -256,8 +274,13 @@ export default function IncidentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredIncidents.map((report) => (
-                      <TableRow key={report.id}>
+                    {filteredIncidents.map((report) => {
+                      const isArchivedFlag = Boolean((report as any)?.archived || (report as any)?.is_archived)
+                      const isArchivedStatus = (report.status as any) === 'archived'
+                      const isLocallyArchived = archivedIds.has(report.id as string)
+                      const isArchived = isArchivedFlag || isArchivedStatus || isLocallyArchived
+                      return (
+                      <TableRow key={report.id} className={isArchived ? "opacity-60" : undefined}>
                         <TableCell className="font-medium">
                           #{String(report.id).slice(-8)}
                         </TableCell>
@@ -318,23 +341,42 @@ export default function IncidentsPage() {
                         <TableCell>{getStatusBadge(report.status)}</TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" disabled={isArchived} title={isArchived ? "Disabled for archived reports" : undefined}>
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => {
                               setSelectedReport(report)
                               setEditedStatus(report.status ?? "pending")
                               setIsEditOpen(true)
-                            }} title="Edit status">
+                            }} title="Edit status" disabled={isArchived}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" title="Archive">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Archive"
+                              onClick={async () => {
+                                try {
+                                  const client = getDispatchClient()
+                                  const result = await client.archiveReport(report.id as string)
+                                  if ((result as any)?.error) {
+                                    console.error("Failed to archive report:", (result as any).error)
+                                    return
+                                  }
+                                  setArchivedIds((prev) => new Set(prev).add(report.id as string))
+                                  await refetch()
+                                } catch (e) {
+                                  console.error("Failed to archive report:", e)
+                                }
+                              }}
+                              disabled={isArchived}
+                            >
                               <Archive className="h-4 w-4 text-orange-500" />
                             </Button>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )})}
                   </TableBody>
                 </Table>
               </CardContent>
