@@ -15,6 +15,7 @@ import {
   Archive,
   Phone,
   LogOut,
+  ShieldCheck,
 } from "lucide-react"
 
 const navigation = [
@@ -27,6 +28,11 @@ const navigation = [
     name: "Users",
     href: "/dashboard/users",
     icon: Users,
+  },
+  {
+    name: "Officers",
+    href: "/dashboard/officers",
+    icon: ShieldCheck,
   },
   {
     name: "Emergency Response",
