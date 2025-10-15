@@ -111,56 +111,59 @@ export default function OfficersPage() {
 							addForm.handleSubmit()
 						}}
 					>
+						<FieldGroup className="space-y-4">
+							{/* Badge Number and Rank in the same row */}
+							<div className="grid grid-cols-2 gap-4">
+								<addForm.Field
+									name="badge_number"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel htmlFor={field.name}>Badge Number</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="12345"
+													autoComplete="off"
+												/>
+												{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											</Field>
+										)
+									}}
+								/>
 
-						<FieldGroup>
-							<addForm.Field
-								name="badge_number"
-								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
-									return (
-										<Field data-invalid={isInvalid}>
-											<FieldLabel htmlFor={field.name}>Badge Number</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												aria-invalid={isInvalid}
-												placeholder="12345"
-												autoComplete="off"
-											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
-										</Field>
-									)
-								}}
-							/>
+								<addForm.Field
+									name="rank"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="Officer"
+													autoComplete="off"
+												/>
+												{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											</Field>
+										)
+									}}
+								/>
+							</div>
 
-							<addForm.Field
-								name="rank"
-								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
-									return (
-										<Field data-invalid={isInvalid}>
-											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												aria-invalid={isInvalid}
-												placeholder="Officer"
-												autoComplete="off"
-											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
-										</Field>
-									)
-								}}
-							/>
-
+							{/* Email field */}
 							<addForm.Field
 								name="email"
 								children={(field) => {
@@ -185,78 +188,82 @@ export default function OfficersPage() {
 								}}
 							/>
 
-							<addForm.Field
-								name="first_name"
-								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
-									return (
-										<Field data-invalid={isInvalid}>
-											<FieldLabel htmlFor={field.name}>First Name</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												aria-invalid={isInvalid}
-												placeholder="John"
-												autoComplete="off"
-											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
-										</Field>
-									)
-								}}
-							/>
+							{/* First Name, Middle Name, and Last Name in the same row */}
+							<div className="grid grid-cols-3 gap-4">
+								<addForm.Field
+									name="first_name"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel htmlFor={field.name}>First Name</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="John"
+													autoComplete="off"
+												/>
+												{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											</Field>
+										)
+									}}
+								/>
 
-							<addForm.Field
-								name="middle_name"
-								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
-									return (
-										<Field data-invalid={isInvalid}>
-											<FieldLabel htmlFor={field.name}>Middle Name</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												aria-invalid={isInvalid}
-												placeholder="Doe"
-												autoComplete="off"
-											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
-										</Field>
-									)
-								}}
-							/>
+								<addForm.Field
+									name="middle_name"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel htmlFor={field.name}>Middle Name</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="Doe"
+													autoComplete="off"
+												/>
+												{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											</Field>
+										)
+									}}
+								/>
 
-							<addForm.Field
-								name="last_name"
-								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
-									return (
-										<Field data-invalid={isInvalid}>
-											<FieldLabel htmlFor={field.name}>Last Name</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												aria-invalid={isInvalid}
-												placeholder="Doe"
-												autoComplete="off"
-											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
-										</Field>
-									)
-								}}
-							/>
+								<addForm.Field
+									name="last_name"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel htmlFor={field.name}>Last Name</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="Doe"
+													autoComplete="off"
+												/>
+												{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											</Field>
+										)
+									}}
+								/>
+							</div>
 
+							{/* Password field */}
 							<addForm.Field
 								name="password"
 								children={(field) => {
