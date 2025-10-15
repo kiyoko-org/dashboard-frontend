@@ -641,68 +641,99 @@ export default function IncidentsPage() {
 							<div className="max-h-96 overflow-y-auto space-y-2">
 								{officersLoading ? (
 									<div className="text-center py-4">Loading officers...</div>
-								) : (
-									officers
-										.filter(officer => {
-											const searchTerm = officerSearchQuery.toLowerCase()
-											const fullName = `${officer.first_name || ''} ${officer.middle_name || ''} ${officer.last_name || ''}`.toLowerCase()
-											const badgeNumber = officer.badge_number?.toLowerCase() || ''
-											const rank = officer.rank?.toLowerCase() || ''
-											return fullName.includes(searchTerm) ||
-												badgeNumber.includes(searchTerm) ||
-												rank.includes(searchTerm)
-										})
-										.map((officer) => {
-											const isAssigned = selectedOfficers.has(officer.id)
-											const isCurrentlyAssigned = officer.assigned_report_id !== null
-											const isAvailable = officer.assigned_report_id === null
+								) : (() => {
+									const filteredOfficers = officers.filter(officer => {
+										const searchTerm = officerSearchQuery.toLowerCase()
+										const fullName = `${officer.first_name || ''} ${officer.middle_name || ''} ${officer.last_name || ''}`.toLowerCase()
+										const badgeNumber = officer.badge_number?.toLowerCase() || ''
+										const rank = officer.rank?.toLowerCase() || ''
+										return fullName.includes(searchTerm) ||
+											badgeNumber.includes(searchTerm) ||
+											rank.includes(searchTerm)
+									})
 
-											return (
-												<div
-													key={officer.id}
-													className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isAssigned
+									const assignedToThisReport = filteredOfficers.filter(
+										officer => officer.assigned_report_id === selectedReportForAssignment?.id
+									)
+									const otherOfficers = filteredOfficers.filter(
+										officer => officer.assigned_report_id !== selectedReportForAssignment?.id
+									)
+
+									const renderOfficerCard = (officer: typeof officers[0]) => {
+										const isAssigned = selectedOfficers.has(officer.id)
+										const isCurrentlyAssigned = officer.assigned_report_id !== null
+										const isAvailable = officer.assigned_report_id === null
+										const isAssignedToThis = officer.assigned_report_id === selectedReportForAssignment?.id
+
+										return (
+											<div
+												key={officer.id}
+												className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+													isAssigned
 														? 'bg-blue-50 border-blue-200'
-														: isCurrentlyAssigned
+														: isCurrentlyAssigned && !isAssignedToThis
 															? 'bg-gray-50 border-gray-200 cursor-not-allowed opacity-60'
 															: 'hover:bg-gray-50 border-gray-200'
-														}`}
-													onClick={() => {
-														if (!isCurrentlyAssigned) {
-															setSelectedOfficers(prev => {
-																const newSet = new Set(prev)
-																if (isAssigned) {
-																	newSet.delete(officer.id)
-																} else {
-																	newSet.add(officer.id)
-																}
-																return newSet
-															})
-														}
-													}}
-												>
-													<div className="flex items-center gap-2">
-														{isAvailable && (
-															<div className="w-3 h-3 rounded-full bg-green-500"></div>
-														)}
-														{isCurrentlyAssigned && (
-															<div className="w-3 h-3 rounded-full bg-red-500"></div>
-														)}
-														<div className="flex-1">
-															<div className="font-medium">
-																{officer.first_name} {officer.middle_name} {officer.last_name}
-															</div>
-															<div className="text-sm text-muted-foreground">
-																{officer.rank} • Badge #{officer.badge_number}
-															</div>
+												}`}
+												onClick={() => {
+													if (!isCurrentlyAssigned || isAssignedToThis) {
+														setSelectedOfficers(prev => {
+															const newSet = new Set(prev)
+															if (isAssigned) {
+																newSet.delete(officer.id)
+															} else {
+																newSet.add(officer.id)
+															}
+															return newSet
+														})
+													}
+												}}
+											>
+												<div className="flex items-center gap-2">
+													{isAvailable && (
+														<div className="w-3 h-3 rounded-full bg-green-500"></div>
+													)}
+													{isCurrentlyAssigned && (
+														<div className="w-3 h-3 rounded-full bg-red-500"></div>
+													)}
+													<div className="flex-1">
+														<div className="font-medium">
+															{officer.first_name} {officer.middle_name} {officer.last_name}
+														</div>
+														<div className="text-sm text-muted-foreground">
+															{officer.rank} • Badge #{officer.badge_number}
 														</div>
 													</div>
-													{isAssigned && (
-														<Check className="h-5 w-5 text-blue-600" />
-													)}
 												</div>
-											)
-										})
-								)}
+												{isAssigned && (
+													<Check className="h-5 w-5 text-blue-600" />
+												)}
+											</div>
+										)
+									}
+
+									return (
+										<>
+											{assignedToThisReport.length > 0 && (
+												<>
+													<div className="text-sm font-medium text-muted-foreground px-1 py-1">
+														Currently Assigned to This Report
+													</div>
+													{assignedToThisReport.map(renderOfficerCard)}
+													{otherOfficers.length > 0 && (
+														<div className="border-t my-3"></div>
+													)}
+												</>
+											)}
+											{assignedToThisReport.length > 0 && otherOfficers.length > 0 && (
+												<div className="text-sm font-medium text-muted-foreground px-1 py-1">
+													Other Officers
+												</div>
+											)}
+											{otherOfficers.map(renderOfficerCard)}
+										</>
+									)
+								})()}
 							</div>
 
 							{selectedOfficers.size > 0 && (
