@@ -112,9 +112,28 @@ export default function IncidentsPage() {
     }
 
     // Handle date comparison
-    if (sortField === "created_at" || sortField === "incident_date") {
+    if (sortField === "created_at") {
       const aDate = new Date(aValue as string)
       const bDate = new Date(bValue as string)
+      const comparison = aDate.getTime() - bDate.getTime()
+      return sortDirection === "asc" ? comparison : -comparison
+    }
+
+    // Handle incident date + time comparison
+    if (sortField === "incident_date") {
+      const aDate = new Date(aValue as string)
+      const bDate = new Date(bValue as string)
+      
+      // If dates are the same, compare by time
+      if (aDate.toDateString() === bDate.toDateString()) {
+        const aTime = a.incident_time || "00:00"
+        const bTime = b.incident_time || "00:00"
+        const aDateTime = new Date(`${aDate.toDateString()} ${aTime}`)
+        const bDateTime = new Date(`${bDate.toDateString()} ${bTime}`)
+        const comparison = aDateTime.getTime() - bDateTime.getTime()
+        return sortDirection === "asc" ? comparison : -comparison
+      }
+      
       const comparison = aDate.getTime() - bDate.getTime()
       return sortDirection === "asc" ? comparison : -comparison
     }
