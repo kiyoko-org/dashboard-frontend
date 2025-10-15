@@ -29,8 +29,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  UserPlus,
+  Check,
 } from "lucide-react"
-import { useRealtimeReports, getDispatchClient, useCategories } from "dispatch-lib"
+import { useRealtimeReports, getDispatchClient, useCategories, useOfficers } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
 
 type Report = Database["public"]["Tables"]["reports"]["Row"]
@@ -38,6 +40,7 @@ type Report = Database["public"]["Tables"]["reports"]["Row"]
 export default function IncidentsPage() {
   const { reports, loading, error, isConnected } = useRealtimeReports()
   const { categories, loading: categoriesLoading } = useCategories()
+  const { officers, loading: officersLoading, assignToReport } = useOfficers()
   const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set())
   const [includeArchived, setIncludeArchived] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -46,6 +49,13 @@ export default function IncidentsPage() {
   const [subcategoryFilter, setSubcategoryFilter] = useState("all")
   const [sortField, setSortField] = useState<keyof Report | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  
+  // Assignment dialog state
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
+  const [selectedReportForAssignment, setSelectedReportForAssignment] = useState<Report | null>(null)
+  const [selectedOfficers, setSelectedOfficers] = useState<Set<string>>(new Set())
+  const [officerSearchQuery, setOfficerSearchQuery] = useState("")
+  const [isAssigning, setIsAssigning] = useState(false)
 
   const getStatusBadge = (status?: string | null) => {
     const variants: Record<string, "default" | "warning" | "success" | "destructive"> = {
@@ -488,6 +498,20 @@ export default function IncidentsPage() {
                             <Button variant="ghost" size="icon" disabled={isArchived} title={isArchived ? "Disabled for archived reports" : undefined}>
                               <Eye className="h-4 w-4" />
                             </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => {
+                                setSelectedReportForAssignment(report)
+                                setSelectedOfficers(new Set())
+                                setOfficerSearchQuery("")
+                                setIsAssignDialogOpen(true)
+                              }} 
+                              title="Assign officers" 
+                              disabled={isArchived}
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="icon" onClick={() => {
                               setSelectedReport(report)
                               setEditedStatus(report.status ?? "pending")
@@ -572,6 +596,175 @@ export default function IncidentsPage() {
             <DialogFooter>
               <Button variant="outline" onClick={() => { if (!saving) { setIsEditOpen(false); setSelectedReport(null) } }} disabled={saving}>Cancel</Button>
               <Button onClick={handleSaveStatus} disabled={saveDisabled}>{saving ? "Saving..." : (selectedReport && editedStatus === (selectedReport.status ?? 'pending') ? 'No Changes' : 'Save')}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
+
+      {/* Assignment Dialog */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={(open) => {
+        if (!isAssigning && !open) {
+          setIsAssignDialogOpen(false)
+          setSelectedReportForAssignment(null)
+          setSelectedOfficers(new Set())
+          setOfficerSearchQuery("")
+        } else {
+          setIsAssignDialogOpen(open)
+        }
+      }}>
+        <DialogPortal>
+          <DialogOverlay />
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Assign Officers to Report</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <div className="text-sm text-muted-foreground">Report</div>
+                <div className="font-medium">{selectedReportForAssignment?.incident_title}</div>
+                <div className="text-xs text-muted-foreground">#{String(selectedReportForAssignment?.id ?? "").slice(-8)}</div>
+              </div>
+              
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={officerSearchQuery}
+                  onChange={(e) => setOfficerSearchQuery(e.target.value)}
+                  className="pl-9"
+                  placeholder="Search officers..."
+                />
+              </div>
+
+              {/* Officers List */}
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {officersLoading ? (
+                  <div className="text-center py-4">Loading officers...</div>
+                ) : (
+                  officers
+                    .filter(officer => {
+                      const searchTerm = officerSearchQuery.toLowerCase()
+                      const fullName = `${officer.first_name || ''} ${officer.middle_name || ''} ${officer.last_name || ''}`.toLowerCase()
+                      const badgeNumber = officer.badge_number?.toLowerCase() || ''
+                      const rank = officer.rank?.toLowerCase() || ''
+                      return fullName.includes(searchTerm) || 
+                             badgeNumber.includes(searchTerm) || 
+                             rank.includes(searchTerm)
+                    })
+                    .map((officer) => {
+                      const isAssigned = selectedOfficers.has(officer.id)
+                      const isCurrentlyAssigned = officer.assigned_report_id !== null
+                      const isAvailable = officer.assigned_report_id === null
+                      
+                      return (
+                        <div
+                          key={officer.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            isAssigned 
+                              ? 'bg-blue-50 border-blue-200' 
+                              : isCurrentlyAssigned
+                              ? 'bg-gray-50 border-gray-200 cursor-not-allowed opacity-60'
+                              : 'hover:bg-gray-50 border-gray-200'
+                          }`}
+                          onClick={() => {
+                            if (!isCurrentlyAssigned) {
+                              setSelectedOfficers(prev => {
+                                const newSet = new Set(prev)
+                                if (isAssigned) {
+                                  newSet.delete(officer.id)
+                                } else {
+                                  newSet.add(officer.id)
+                                }
+                                return newSet
+                              })
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isAvailable && (
+                              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            )}
+                            {isCurrentlyAssigned && (
+                              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                            )}
+                            <div className="flex-1">
+                              <div className="font-medium">
+                                {officer.first_name} {officer.middle_name} {officer.last_name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {officer.rank} • Badge #{officer.badge_number}
+                              </div>
+                            </div>
+                          </div>
+                          {isAssigned && (
+                            <Check className="h-5 w-5 text-blue-600" />
+                          )}
+                        </div>
+                      )
+                    })
+                )}
+              </div>
+
+              {selectedOfficers.size > 0 && (
+                <div className="text-sm text-muted-foreground">
+                  {selectedOfficers.size} officer{selectedOfficers.size > 1 ? 's' : ''} selected
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => { 
+                  if (!isAssigning) { 
+                    setIsAssignDialogOpen(false)
+                    setSelectedReportForAssignment(null)
+                    setSelectedOfficers(new Set())
+                    setOfficerSearchQuery("")
+                  } 
+                }} 
+                disabled={isAssigning}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={async () => {
+                  if (!selectedReportForAssignment || selectedOfficers.size === 0) return
+                  
+                  setIsAssigning(true)
+                  try {
+                    const client = getDispatchClient()
+                    let hasError = false
+                    
+                    // Assign each selected officer to the report
+                    for (const officerId of selectedOfficers) {
+                      const result = await assignToReport(officerId, selectedReportForAssignment.id)
+                      if (result.error) {
+                        console.error(`Failed to assign officer ${officerId}:`, result.error)
+                        hasError = true
+                      }
+                    }
+                    
+                    if (!hasError) {
+                      // Update report status to assigned if it was pending
+                      if (selectedReportForAssignment.status === 'pending') {
+                        await client.updateReport(selectedReportForAssignment.id, { status: 'assigned' })
+                      }
+                      
+                      setIsAssignDialogOpen(false)
+                      setSelectedReportForAssignment(null)
+                      setSelectedOfficers(new Set())
+                      setOfficerSearchQuery("")
+                    }
+                  } catch (error) {
+                    console.error("Failed to assign officers:", error)
+                  } finally {
+                    setIsAssigning(false)
+                  }
+                }} 
+                disabled={isAssigning || selectedOfficers.size === 0}
+              >
+                {isAssigning ? "Assigning..." : `Assign ${selectedOfficers.size} Officer${selectedOfficers.size > 1 ? 's' : ''}`}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </DialogPortal>
