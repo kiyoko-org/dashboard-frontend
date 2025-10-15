@@ -10,6 +10,13 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select"
 import { useEffect, useState } from "react"
 import { useForm } from '@tanstack/react-form'
 import { FieldGroup, FieldLabel, FieldError, Field } from "@/components/ui/field"
@@ -18,6 +25,28 @@ import { uppercaseFirstLetter } from "@/lib/utils"
 import { Header } from "@/components/layout/header"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { z } from "zod"
+
+// Philippine Police Ranks (PNP) - from highest to lowest
+const PHILIPPINE_POLICE_RANKS = [
+	// Commissioned Officers
+	"Police General (PGen)",
+	"Police Lieutenant General (PLtGen)",
+	"Police Major General (PMGen)",
+	"Police Brigadier General (PBGen)",
+	"Police Colonel (PCol)",
+	"Police Lieutenant Colonel (PLtCol)",
+	"Police Major (PMaj)",
+	"Police Captain (PCpt)",
+	"Police Lieutenant (PLt)",
+	// Non-Commissioned Officers
+	"Police Executive Master Sergeant (PEMS)",
+	"Police Chief Master Sergeant (PCMS)",
+	"Police Senior Master Sergeant (PSMS)",
+	"Police Master Sergeant (PMSg)",
+	"Police Staff Sergeant (PSSg)",
+	"Police Corporal (PCpl)",
+	"Patrolman/Patrolwoman (Pat)",
+]
 
 const officerSchema = z.object({
 	badge_number: z.string().min(1, "Badge number is required"),
@@ -121,7 +150,7 @@ export default function OfficersPage() {
 											field.state.meta.isTouched && !field.state.meta.isValid
 										return (
 											<Field data-invalid={isInvalid}>
-												<FieldLabel htmlFor={field.name}>Badge Number</FieldLabel>
+												<FieldLabel htmlFor={field.name}>Badge Number *</FieldLabel>
 												<Input
 													id={field.name}
 													name={field.name}
@@ -145,17 +174,22 @@ export default function OfficersPage() {
 											field.state.meta.isTouched && !field.state.meta.isValid
 										return (
 											<Field data-invalid={isInvalid}>
-												<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
-												<Input
-													id={field.name}
-													name={field.name}
+												<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)} *</FieldLabel>
+												<Select
 													value={field.state.value}
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													aria-invalid={isInvalid}
-													placeholder="Officer"
-													autoComplete="off"
-												/>
+													onValueChange={(value) => field.handleChange(value)}
+												>
+													<SelectTrigger aria-invalid={isInvalid}>
+														<SelectValue placeholder="Select rank" />
+													</SelectTrigger>
+													<SelectContent>
+														{PHILIPPINE_POLICE_RANKS.map((rank) => (
+															<SelectItem key={rank} value={rank}>
+																{rank}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>
 										)
@@ -197,7 +231,7 @@ export default function OfficersPage() {
 											field.state.meta.isTouched && !field.state.meta.isValid
 										return (
 											<Field data-invalid={isInvalid}>
-												<FieldLabel htmlFor={field.name}>First Name</FieldLabel>
+												<FieldLabel htmlFor={field.name}>First Name *</FieldLabel>
 												<Input
 													id={field.name}
 													name={field.name}
@@ -221,7 +255,7 @@ export default function OfficersPage() {
 											field.state.meta.isTouched && !field.state.meta.isValid
 										return (
 											<Field data-invalid={isInvalid}>
-												<FieldLabel htmlFor={field.name}>Middle Name</FieldLabel>
+												<FieldLabel htmlFor={field.name}>Middle Name *</FieldLabel>
 												<Input
 													id={field.name}
 													name={field.name}
@@ -245,7 +279,7 @@ export default function OfficersPage() {
 											field.state.meta.isTouched && !field.state.meta.isValid
 										return (
 											<Field data-invalid={isInvalid}>
-												<FieldLabel htmlFor={field.name}>Last Name</FieldLabel>
+												<FieldLabel htmlFor={field.name}>Last Name *</FieldLabel>
 												<Input
 													id={field.name}
 													name={field.name}
@@ -271,7 +305,7 @@ export default function OfficersPage() {
 										field.state.meta.isTouched && !field.state.meta.isValid
 									return (
 										<Field data-invalid={isInvalid}>
-											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
+											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)} *</FieldLabel>
 											<Input
 												id={field.name}
 												name={field.name}
