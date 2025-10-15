@@ -49,7 +49,9 @@ const PHILIPPINE_POLICE_RANKS = [
 ]
 
 const officerSchema = z.object({
-	badge_number: z.number("Badge number must be a number").min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
+	badge_number: z.string().regex(/^\d+$/, {
+		message: 'String must contain only digits (0-9).',
+	}).min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
 	rank: z.string().min(1, "Rank is required"),
 	email: z.string().email("Invalid email address"),
 	first_name: z.string().min(1, "First name is required"),
@@ -181,6 +183,7 @@ export default function OfficersPage() {
 													value={field.state.value}
 													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
+													type="number"
 													aria-invalid={isInvalid}
 													placeholder="12345"
 													autoComplete="off"
@@ -401,7 +404,7 @@ export default function OfficersPage() {
 					<CardContent>
 						{loading ? (
 							<p className="text-sm text-muted-foreground">Loading officers...</p>
-						) : officers && officers.length > 0 ? (
+						) : officers && Array.isArray(officers) && officers.length > 0 ? (
 							<Table>
 								<TableHeader>
 									<TableRow>
@@ -412,10 +415,10 @@ export default function OfficersPage() {
 								</TableHeader>
 								<TableBody>
 									{officers.map((officer) => (
-										<TableRow key={officer.badge_number}>
-											<TableCell>{officer.badge_number}</TableCell>
-											<TableCell>{officer.first_name}</TableCell>
-											<TableCell>{officer.last_name}</TableCell>
+										<TableRow key={officer.id}>
+											<TableCell>{officer.badge_number || 'N/A'}</TableCell>
+											<TableCell>{officer.first_name || 'N/A'}</TableCell>
+											<TableCell>{officer.last_name || 'N/A'}</TableCell>
 										</TableRow>
 									))}
 								</TableBody>
