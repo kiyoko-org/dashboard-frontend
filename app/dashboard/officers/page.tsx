@@ -49,7 +49,7 @@ const PHILIPPINE_POLICE_RANKS = [
 ]
 
 const officerSchema = z.object({
-	badge_number: z.string().min(1, "Badge number is required"),
+	badge_number: z.number("Badge number must be a number").min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
 	rank: z.string().min(1, "Rank is required"),
 	email: z.string().email("Invalid email address"),
 	first_name: z.string().min(1, "First name is required"),
