@@ -226,6 +226,31 @@ export default function IncidentsPage() {
 		setUpdateError(null)
 		try {
 			const client = getDispatchClient()
+			
+			if (editedStatus === 'resolved') {
+				const { data: assignedOfficers, error: fetchError } = await client.supabaseClient
+					.from('officers')
+					.select('id')
+					.eq('assigned_report_id', selectedReport.id)
+				
+				if (fetchError) {
+					throw new Error(`Failed to fetch assigned officers: ${fetchError.message}`)
+				}
+
+				if (assignedOfficers && assignedOfficers.length > 0) {
+					for (const officer of assignedOfficers) {
+						const { error: unassignError } = await client.supabaseClient
+							.from('officers')
+							.update({ assigned_report_id: null })
+							.eq('id', officer.id)
+						
+						if (unassignError) {
+							throw new Error(`Failed to unassign officer ${officer.id}: ${unassignError.message}`)
+						}
+					}
+				}
+			}
+
 			const result = await client.updateReport(selectedReport.id, { status: editedStatus })
 			if (result.error) {
 				throw new Error(result.error.message || 'Failed to update status')
@@ -565,6 +590,16 @@ export default function IncidentsPage() {
 				<DialogPortal>
 					<DialogOverlay />
 					<DialogContent>
+						{saving && (
+							<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+								<div className="flex flex-col items-center gap-2">
+									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+									<div className="text-sm text-muted-foreground">
+										{editedStatus === 'resolved' ? 'Unassigning officers and updating status...' : 'Updating status...'}
+									</div>
+								</div>
+							</div>
+						)}
 						<DialogHeader>
 							<DialogTitle>Edit Status</DialogTitle>
 						</DialogHeader>
@@ -576,7 +611,7 @@ export default function IncidentsPage() {
 							</div>
 							<div>
 								<div className="text-sm text-muted-foreground mb-2">Status</div>
-								<Select value={editedStatus} onValueChange={(value) => setEditedStatus(value as ReportStatus)}>
+								<Select value={editedStatus} onValueChange={(value) => setEditedStatus(value as ReportStatus)} disabled={saving}>
 									<SelectTrigger>
 										<SelectValue placeholder="Select status" />
 									</SelectTrigger>
