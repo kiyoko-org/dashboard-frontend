@@ -31,6 +31,7 @@ import {
 	ArrowDown,
 	UserPlus,
 	Check,
+	X,
 } from "lucide-react"
 import { useRealtimeReports, getDispatchClient, useCategories, useOfficers } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
@@ -668,28 +669,30 @@ export default function IncidentsPage() {
 										return (
 											<div
 												key={officer.id}
-												className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+												className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
 													isAssigned
 														? 'bg-blue-50 border-blue-200'
 														: isCurrentlyAssigned && !isAssignedToThis
 															? 'bg-gray-50 border-gray-200 cursor-not-allowed opacity-60'
-															: 'hover:bg-gray-50 border-gray-200'
+															: 'hover:bg-gray-50 border-gray-200 cursor-pointer'
 												}`}
 												onClick={() => {
 													if (!isCurrentlyAssigned || isAssignedToThis) {
-														setSelectedOfficers(prev => {
-															const newSet = new Set(prev)
-															if (isAssigned) {
-																newSet.delete(officer.id)
-															} else {
-																newSet.add(officer.id)
-															}
-															return newSet
-														})
+														if (!isAssignedToThis) {
+															setSelectedOfficers(prev => {
+																const newSet = new Set(prev)
+																if (isAssigned) {
+																	newSet.delete(officer.id)
+																} else {
+																	newSet.add(officer.id)
+																}
+																return newSet
+															})
+														}
 													}
 												}}
 											>
-												<div className="flex items-center gap-2">
+												<div className="flex items-center gap-2 flex-1">
 													{isAvailable && (
 														<div className="w-3 h-3 rounded-full bg-green-500"></div>
 													)}
@@ -705,9 +708,34 @@ export default function IncidentsPage() {
 														</div>
 													</div>
 												</div>
-												{isAssigned && (
+												{isAssignedToThis ? (
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-8 w-8"
+														onClick={async (e) => {
+															e.stopPropagation()
+															try {
+																const client = getDispatchClient()
+																const { error } = await client.supabaseClient
+																	.from('officers')
+																	.update({ assigned_report_id: null })
+																	.eq('id', officer.id)
+
+																if (error) {
+																	console.error(`Failed to unassign officer ${officer.id}:`, error)
+																}
+															} catch (error) {
+																console.error("Failed to unassign officer:", error)
+															}
+														}}
+														title="Unassign from this report"
+													>
+														<X className="h-4 w-4 text-red-600" />
+													</Button>
+												) : isAssigned ? (
 													<Check className="h-5 w-5 text-blue-600" />
-												)}
+												) : null}
 											</div>
 										)
 									}
