@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogPortal, DialogOverlay, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog"
@@ -30,13 +30,14 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react"
-import { useRealtimeReports, getDispatchClient } from "dispatch-lib"
+import { useRealtimeReports, getDispatchClient, useCategories } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
 
 type Report = Database["public"]["Tables"]["reports"]["Row"]
 
 export default function IncidentsPage() {
   const { reports, loading, error, isConnected } = useRealtimeReports()
+  const { categories, loading: categoriesLoading } = useCategories()
   const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set())
   const [includeArchived, setIncludeArchived] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -61,6 +62,20 @@ export default function IncidentsPage() {
     )
   }
 
+  // Helper functions to get category and subcategory names
+  const getCategoryName = (categoryId?: number | null) => {
+    if (!categoryId || !categories) return "Unknown Category"
+    const category = categories.find(cat => cat.id === categoryId)
+    return category?.name || "Unknown Category"
+  }
+
+  const getSubcategoryName = (categoryId?: number | null, subcategoryIndex?: number | null) => {
+    if (!categoryId || subcategoryIndex === null || subcategoryIndex === undefined || !categories) return "Unknown Subcategory"
+    const category = categories.find(cat => cat.id === categoryId)
+    if (!category?.sub_categories || subcategoryIndex >= category.sub_categories.length) return "Unknown Subcategory"
+    return category.sub_categories[subcategoryIndex] || "Unknown Subcategory"
+  }
+
 
   const visibleReports = reports.filter((r) => {
     const isArchivedFlag = Boolean(r.is_archived)
@@ -74,10 +89,11 @@ export default function IncidentsPage() {
     const q = (searchQuery ?? '').toLowerCase()
     const title = String(report.incident_title ?? '').toLowerCase()
     const street = String(report.street_address ?? '').toLowerCase()
-    const category = String(report.category_id ?? '').toLowerCase()
+    const categoryName = getCategoryName(report.category_id).toLowerCase()
+    const subcategoryName = getSubcategoryName(report.category_id, report.sub_category).toLowerCase()
 
     const matchesSearch =
-      title.includes(q) || street.includes(q) || category.includes(q)
+      title.includes(q) || street.includes(q) || categoryName.includes(q) || subcategoryName.includes(q)
 
     const matchesStatus =
       statusFilter === "all" || (report.status ?? '').toString() === statusFilter
@@ -283,17 +299,33 @@ export default function IncidentsPage() {
                     </div>
 
                     {/* Status Filter */}
-                    <Select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                    >
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="assigned">Assigned</SelectItem>
+                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
                     </Select>
 
                     {/* Category Filter */}
-                    <Select
-                      value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
-                    >
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories?.map((category) => (
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </div>
 
@@ -391,10 +423,12 @@ export default function IncidentsPage() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">Category {report.category_id}</div>
-                            <div className="text-xs text-muted-foreground">
-                              Sub-category {report.sub_category}
-                            </div>
+                            <div className="font-medium">{getCategoryName(report.category_id)}</div>
+                            {report.sub_category !== null && report.sub_category !== undefined && (
+                              <div className="text-xs text-muted-foreground">
+                                {getSubcategoryName(report.category_id, report.sub_category)}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -483,7 +517,17 @@ export default function IncidentsPage() {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-2">Status</div>
-                 <Select value={editedStatus} onChange={(e) => setEditedStatus(e.target.value as ReportStatus)}>
+                <Select value={editedStatus} onValueChange={(value) => setEditedStatus(value as ReportStatus)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
               {updateError && (
