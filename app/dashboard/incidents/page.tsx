@@ -28,12 +28,13 @@ import {
   User,
   AlertTriangle,
 } from "lucide-react"
-import { useReports } from "@/lib/new/useReports"
-import { getDispatchClient } from "dispatch-lib"
-import type { DatabaseReport } from "@/lib/new/types"
+import { useRealtimeReports, getDispatchClient } from "dispatch-lib"
+import type { Database } from "dispatch-lib/database.types"
+
+type Report = Database["public"]["Tables"]["reports"]["Row"]
 
 export default function IncidentsPage() {
-  const { reports, loading, error, updateReportStatus, refetch } = useReports()
+  const { reports, loading, error, isConnected } = useRealtimeReports()
   const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set())
   const [includeArchived, setIncludeArchived] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -72,9 +73,9 @@ export default function IncidentsPage() {
   }
 
   const visibleReports = reports.filter((r) => {
-    const isArchivedFlag = Boolean((r as any)?.archived || (r as any)?.is_archived)
-    const isArchivedStatus = (r.status as any) === 'archived'
-    const isLocallyArchived = archivedIds.has(r.id as string)
+    const isArchivedFlag = Boolean(r.is_archived)
+    const isArchivedStatus = r.status === 'archived'
+    const isLocallyArchived = archivedIds.has(r.id.toString())
     const isArchived = isArchivedFlag || isArchivedStatus || isLocallyArchived
     return includeArchived ? true : !isArchived
   })
@@ -83,17 +84,16 @@ export default function IncidentsPage() {
     const q = (searchQuery ?? '').toLowerCase()
     const title = String(report.incident_title ?? '').toLowerCase()
     const street = String(report.street_address ?? '').toLowerCase()
-    const city = String(report.city ?? '').toLowerCase()
-    const category = String(report.incident_category ?? '').toLowerCase()
+    const category = String(report.category_id ?? '').toLowerCase()
 
     const matchesSearch =
-      title.includes(q) || street.includes(q) || city.includes(q) || category.includes(q)
+      title.includes(q) || street.includes(q) || category.includes(q)
 
     const matchesStatus =
       statusFilter === "all" || (report.status ?? '').toString() === statusFilter
 
     const matchesCategory =
-      categoryFilter === "all" || (report.incident_category ?? '') === categoryFilter
+      categoryFilter === "all" || (report.category_id ?? '').toString() === categoryFilter
 
     return matchesSearch && matchesStatus && matchesCategory
   })
@@ -107,7 +107,7 @@ export default function IncidentsPage() {
 
   // Dialog state for editing status
   const [isEditOpen, setIsEditOpen] = useState(false)
-  const [selectedReport, setSelectedReport] = useState<DatabaseReport | null>(null)
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled"
   const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
   const [saving, setSaving] = useState(false)
@@ -123,7 +123,11 @@ export default function IncidentsPage() {
     setSaving(true)
     setUpdateError(null)
     try {
-      await updateReportStatus(selectedReport.id, editedStatus)
+      const client = getDispatchClient()
+      const result = await client.updateReport(selectedReport.id, { status: editedStatus })
+      if (result.error) {
+        throw new Error(result.error.message || 'Failed to update status')
+      }
       setIsEditOpen(false)
       setSelectedReport(null)
     } catch (err) {
@@ -275,9 +279,9 @@ export default function IncidentsPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredIncidents.map((report) => {
-                      const isArchivedFlag = Boolean((report as any)?.archived || (report as any)?.is_archived)
-                      const isArchivedStatus = (report.status as any) === 'archived'
-                      const isLocallyArchived = archivedIds.has(report.id as string)
+                      const isArchivedFlag = Boolean(report.is_archived)
+                      const isArchivedStatus = report.status === 'archived'
+                      const isLocallyArchived = archivedIds.has(report.id.toString())
                       const isArchived = isArchivedFlag || isArchivedStatus || isLocallyArchived
                       return (
                       <TableRow key={report.id} className={isArchived ? "opacity-60" : undefined}>
@@ -292,31 +296,16 @@ export default function IncidentsPage() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{report.incident_category}</div>
+                            <div className="font-medium">Category {report.category_id}</div>
                             <div className="text-xs text-muted-foreground">
-                              {report.incident_subcategory}
+                              Sub-category {report.sub_category}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {(() => {
-                              const profile = (report as any).profiles
-                              const reporterName = profile && (profile.first_name || profile.last_name) ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : report.reporter_id
-                              return report.is_anonymous ? (
-                                <>
-                                  <User className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-muted-foreground italic">
-                                    Anonymous
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <User className="h-4 w-4" />
-                                  <span>{reporterName}</span>
-                                </>
-                              )
-                            })()}
+                            <User className="h-4 w-4" />
+                            <span>{report.reporter_id}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -332,12 +321,12 @@ export default function IncidentsPage() {
                            <div className="flex items-start gap-1">
                              <MapPin className="h-3 w-3 mt-1 text-muted-foreground flex-shrink-0" />
                              <span className="text-sm">
-                               {report.street_address}, {report.city}, {report.province}
+                               {report.street_address}
                                {report.nearby_landmark && ` (${report.nearby_landmark})`}
                              </span>
                            </div>
                          </TableCell>
-                        <TableCell>{getSeverityBadge(report.priority)}</TableCell>
+                        <TableCell>{getSeverityBadge("medium")}</TableCell>
                         <TableCell>{getStatusBadge(report.status)}</TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-2">
@@ -358,13 +347,12 @@ export default function IncidentsPage() {
                               onClick={async () => {
                                 try {
                                   const client = getDispatchClient()
-                                  const result = await client.archiveReport(report.id as string)
-                                  if ((result as any)?.error) {
-                                    console.error("Failed to archive report:", (result as any).error)
+                                  const result = await client.archiveReport(report.id)
+                                  if (result.error) {
+                                    console.error("Failed to archive report:", result.error)
                                     return
                                   }
-                                  setArchivedIds((prev) => new Set(prev).add(report.id as string))
-                                  await refetch()
+                                  setArchivedIds((prev) => new Set(prev).add(report.id.toString()))
                                 } catch (e) {
                                   console.error("Failed to archive report:", e)
                                 }
