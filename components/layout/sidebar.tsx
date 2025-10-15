@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useAuthContext } from "dispatch-lib"
+import { useSidebar } from "@/components/providers/sidebar-provider"
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -16,6 +17,7 @@ import {
   Phone,
   LogOut,
   ShieldCheck,
+  X,
 } from "lucide-react"
 
 const navigation = [
@@ -75,6 +77,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { signOut, user } = useAuthContext()
+  const { isOpen, closeSidebar } = useSidebar()
 
   const handleSignOut = async () => {
     await signOut()
@@ -82,11 +85,30 @@ export function Sidebar() {
   }
 
   return (
-    <div className="flex h-full w-64 flex-col bg-slate-900 text-white">
-      {/* Logo */}
-      <div className="flex h-16 items-center px-6 border-b border-slate-800">
-        <h1 className="text-xl font-bold">Dispatch Admin</h1>
-      </div>
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={cn(
+        "fixed lg:static inset-y-0 left-0 z-50 flex h-full w-64 flex-col bg-slate-900 text-white transform transition-transform duration-300 ease-in-out",
+        isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      )}>
+        {/* Logo */}
+        <div className="flex h-16 items-center justify-between px-6 border-b border-slate-800">
+          <h1 className="text-xl font-bold">Dispatch Admin</h1>
+          <button
+            onClick={closeSidebar}
+            className="lg:hidden p-1 rounded-md hover:bg-slate-800 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-4">
@@ -129,7 +151,8 @@ export function Sidebar() {
           Sign Out
         </button>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
 
