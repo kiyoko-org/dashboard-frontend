@@ -22,7 +22,9 @@ import { z } from "zod"
 const officerSchema = z.object({
 	badge_number: z.string().min(1, "Badge number is required"),
 	rank: z.string().min(1, "Rank is required"),
+	email: z.string().email("Invalid email address"),
 	first_name: z.string().min(1, "First name is required"),
+	middle_name: z.string().min(1, "First name is required"),
 	last_name: z.string().min(1, "Last name is required"),
 	password: z.string().min(6, "Password must be at least 6 characters"),
 })
@@ -41,8 +43,10 @@ export default function OfficersPage() {
 	const addForm = useForm({
 		defaultValues: {
 			badge_number: "",
+			email: "",
 			rank: "",
 			first_name: "",
+			middle_name: "",
 			last_name: "",
 			password: "",
 		},
@@ -53,12 +57,14 @@ export default function OfficersPage() {
 			try {
 				setErrorMessage(null)
 				setSuccessMessage(null)
-				
+
 				const client = getDispatchClient()
 				const result = await client.createOfficer(
 					value.badge_number,
+					value.email,
 					value.rank,
 					value.first_name,
+					value.middle_name,
 					value.last_name,
 					value.password
 				)
@@ -66,6 +72,7 @@ export default function OfficersPage() {
 				console.log(value)
 
 				if (result.error) {
+					console.error("something happened", result.error)
 					setErrorMessage(result.error.message)
 					return
 				}
@@ -104,6 +111,7 @@ export default function OfficersPage() {
 							addForm.handleSubmit()
 						}}
 					>
+
 						<FieldGroup>
 							<addForm.Field
 								name="badge_number"
@@ -154,6 +162,30 @@ export default function OfficersPage() {
 							/>
 
 							<addForm.Field
+								name="email"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												aria-invalid={isInvalid}
+												placeholder="example@gmail.com"
+												autoComplete="off"
+											/>
+											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+										</Field>
+									)
+								}}
+							/>
+
+							<addForm.Field
 								name="first_name"
 								children={(field) => {
 									const isInvalid =
@@ -169,6 +201,30 @@ export default function OfficersPage() {
 												onChange={(e) => field.handleChange(e.target.value)}
 												aria-invalid={isInvalid}
 												placeholder="John"
+												autoComplete="off"
+											/>
+											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+										</Field>
+									)
+								}}
+							/>
+
+							<addForm.Field
+								name="middle_name"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel htmlFor={field.name}>Middle Name</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												aria-invalid={isInvalid}
+												placeholder="Doe"
 												autoComplete="off"
 											/>
 											{isInvalid && <FieldError errors={field.state.meta.errors} />}
@@ -253,32 +309,32 @@ export default function OfficersPage() {
 							Add Officer
 						</Button>
 					</CardHeader>
-				<CardContent>
-					{loading ? (
-						<p className="text-sm text-muted-foreground">Loading officers...</p>
-					) : officers && officers.length > 0 ? (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Badge Number</TableHead>
-									<TableHead>First Name</TableHead>
-									<TableHead>Last Name</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{officers.map((officer) => (
-									<TableRow key={officer.badge_number}>
-										<TableCell>{officer.badge_number}</TableCell>
-										<TableCell>{officer.first_name}</TableCell>
-										<TableCell>{officer.last_name}</TableCell>
+					<CardContent>
+						{loading ? (
+							<p className="text-sm text-muted-foreground">Loading officers...</p>
+						) : officers && officers.length > 0 ? (
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Badge Number</TableHead>
+										<TableHead>First Name</TableHead>
+										<TableHead>Last Name</TableHead>
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					) : (
-						<p className="text-sm text-muted-foreground">No officers found. Use the "Add Officer" button to create one.</p>
-					)}
-				</CardContent>
+								</TableHeader>
+								<TableBody>
+									{officers.map((officer) => (
+										<TableRow key={officer.badge_number}>
+											<TableCell>{officer.badge_number}</TableCell>
+											<TableCell>{officer.first_name}</TableCell>
+											<TableCell>{officer.last_name}</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						) : (
+							<p className="text-sm text-muted-foreground">No officers found. Use the "Add Officer" button to create one.</p>
+						)}
+					</CardContent>
 				</Card>
 			</div>
 		</>

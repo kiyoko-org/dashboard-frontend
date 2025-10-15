@@ -43,6 +43,7 @@ export default function IncidentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [subcategoryFilter, setSubcategoryFilter] = useState("all")
   const [sortField, setSortField] = useState<keyof Report | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
@@ -76,6 +77,19 @@ export default function IncidentsPage() {
     return category.sub_categories[subcategoryIndex] || "Unknown Subcategory"
   }
 
+  // Get subcategories for the selected category
+  const getSubcategoriesForCategory = (categoryId: string) => {
+    if (categoryId === "all" || !categories) return []
+    const category = categories.find(cat => cat.id.toString() === categoryId)
+    return category?.sub_categories || []
+  }
+
+  // Reset subcategory filter when category changes
+  const handleCategoryFilterChange = (value: string) => {
+    setCategoryFilter(value)
+    setSubcategoryFilter("all") // Reset subcategory filter when category changes
+  }
+
 
   const visibleReports = reports.filter((r) => {
     const isArchivedFlag = Boolean(r.is_archived)
@@ -101,7 +115,11 @@ export default function IncidentsPage() {
     const matchesCategory =
       categoryFilter === "all" || (report.category_id ?? '').toString() === categoryFilter
 
-    return matchesSearch && matchesStatus && matchesCategory
+    const matchesSubcategory = subcategoryFilter === "all" || 
+      (report.sub_category !== null && report.sub_category !== undefined && 
+       report.sub_category.toString() === subcategoryFilter)
+
+    return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory
   })
 
   // Sort the filtered incidents
@@ -314,7 +332,7 @@ export default function IncidentsPage() {
                     </Select>
 
                     {/* Category Filter */}
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All Categories" />
                       </SelectTrigger>
@@ -323,6 +341,21 @@ export default function IncidentsPage() {
                         {categories?.map((category) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Subcategory Filter */}
+                    <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All Subcategories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Subcategories</SelectItem>
+                        {getSubcategoriesForCategory(categoryFilter).map((subcategory, index) => (
+                          <SelectItem key={index} value={index.toString()}>
+                            {subcategory}
                           </SelectItem>
                         ))}
                       </SelectContent>
