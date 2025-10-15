@@ -17,7 +17,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useForm } from '@tanstack/react-form'
 import { FieldGroup, FieldLabel, FieldError, Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -62,12 +62,34 @@ export default function OfficersPage() {
 	const [addOpen, setAddOpen] = useState(false)
 	const [successMessage, setSuccessMessage] = useState<string | null>(null)
 	const [errorMessage, setErrorMessage] = useState<string | null>(null)
+	const [rankSearch, setRankSearch] = useState("")
+	const [showRankDropdown, setShowRankDropdown] = useState(false)
+	const rankDropdownRef = useRef<HTMLDivElement>(null)
 
 	const { officers, loading } = useOfficers()
 
 	useEffect(() => {
 		console.log(officers)
 	}, [officers])
+
+	// Filter ranks based on search
+	const filteredRanks = PHILIPPINE_POLICE_RANKS.filter(rank =>
+		rank.toLowerCase().includes(rankSearch.toLowerCase())
+	)
+
+	// Handle click outside to close dropdown
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (rankDropdownRef.current && !rankDropdownRef.current.contains(event.target as Node)) {
+				setShowRankDropdown(false)
+			}
+		}
+
+		document.addEventListener('mousedown', handleClickOutside)
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside)
+		}
+	}, [])
 
 	const addForm = useForm({
 		defaultValues: {
@@ -124,6 +146,8 @@ export default function OfficersPage() {
 				if (!open) {
 					addForm.reset()
 					setErrorMessage(null)
+					setRankSearch("")
+					setShowRankDropdown(false)
 				}
 			}}>
 				<DialogContent className="sm:max-w-2xl">
@@ -175,21 +199,45 @@ export default function OfficersPage() {
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)} *</FieldLabel>
-												<Select
-													value={field.state.value}
-													onValueChange={(value) => field.handleChange(value)}
-												>
-													<SelectTrigger aria-invalid={isInvalid}>
-														<SelectValue placeholder="Select rank" />
-													</SelectTrigger>
-													<SelectContent>
-														{PHILIPPINE_POLICE_RANKS.map((rank) => (
-															<SelectItem key={rank} value={rank}>
-																{rank}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
+												<div className="relative" ref={rankDropdownRef}>
+													<Input
+														id={field.name}
+														name={field.name}
+														value={rankSearch || field.state.value}
+														onChange={(e) => {
+															setRankSearch(e.target.value)
+															field.handleChange(e.target.value)
+															setShowRankDropdown(true)
+														}}
+														onFocus={() => setShowRankDropdown(true)}
+														aria-invalid={isInvalid}
+														placeholder="Type to search ranks..."
+														autoComplete="off"
+													/>
+													{showRankDropdown && (
+														<div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+															{filteredRanks.length > 0 ? (
+																filteredRanks.map((rank) => (
+																	<div
+																		key={rank}
+																		className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+																		onClick={() => {
+																			field.handleChange(rank)
+																			setRankSearch(rank)
+																			setShowRankDropdown(false)
+																		}}
+																	>
+																		{rank}
+																	</div>
+																))
+															) : (
+																<div className="px-3 py-2 text-sm text-gray-500">
+																	No ranks found
+																</div>
+															)}
+														</div>
+													)}
+												</div>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>
 										)
