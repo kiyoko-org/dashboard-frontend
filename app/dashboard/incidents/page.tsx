@@ -25,8 +25,10 @@ import {
   Archive,
   MapPin,
   Calendar,
-  User,
   AlertTriangle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react"
 import { useRealtimeReports, getDispatchClient } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
@@ -40,6 +42,8 @@ export default function IncidentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [sortField, setSortField] = useState<keyof Report | null>(null)
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
   const getStatusBadge = (status?: string | null) => {
     const variants: Record<string, "default" | "warning" | "success" | "destructive"> = {
@@ -57,20 +61,6 @@ export default function IncidentsPage() {
     )
   }
 
-  const getSeverityBadge = (severity?: string | null) => {
-    const s = (severity ?? "low").toLowerCase()
-    const variants: Record<string, "default" | "warning" | "destructive"> = {
-      low: "default",
-      medium: "warning",
-      high: "warning",
-      critical: "destructive",
-    }
-    return (
-      <Badge variant={variants[s] || "default"} className="capitalize">
-        {s}
-      </Badge>
-    )
-  }
 
   const visibleReports = reports.filter((r) => {
     const isArchivedFlag = Boolean(r.is_archived)
@@ -97,6 +87,54 @@ export default function IncidentsPage() {
 
     return matchesSearch && matchesStatus && matchesCategory
   })
+
+  // Sort the filtered incidents
+  const sortedIncidents = [...filteredIncidents].sort((a, b) => {
+    if (!sortField) return 0
+
+    const aValue = a[sortField]
+    const bValue = b[sortField]
+
+    // Handle null/undefined values
+    if (aValue === null || aValue === undefined) return sortDirection === "asc" ? 1 : -1
+    if (bValue === null || bValue === undefined) return sortDirection === "asc" ? -1 : 1
+
+    // Handle string comparison
+    if (typeof aValue === "string" && typeof bValue === "string") {
+      const comparison = aValue.localeCompare(bValue)
+      return sortDirection === "asc" ? comparison : -comparison
+    }
+
+    // Handle number comparison
+    if (typeof aValue === "number" && typeof bValue === "number") {
+      const comparison = aValue - bValue
+      return sortDirection === "asc" ? comparison : -comparison
+    }
+
+    // Handle date comparison
+    if (sortField === "created_at" || sortField === "incident_date") {
+      const aDate = new Date(aValue as string)
+      const bDate = new Date(bValue as string)
+      const comparison = aDate.getTime() - bDate.getTime()
+      return sortDirection === "asc" ? comparison : -comparison
+    }
+
+    return 0
+  })
+
+  const handleSort = (field: keyof Report) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
+
+  const getSortIcon = (field: keyof Report) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />
+    return sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+  }
 
   const stats = {
     total: visibleReports.length,
@@ -266,19 +304,57 @@ export default function IncidentsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Reporter</TableHead>
-                      <TableHead>Date & Time</TableHead>
-                       <TableHead className="min-w-[18rem]">Location</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("id")}
+                      >
+                        <div className="flex items-center gap-2">
+                          ID
+                          {getSortIcon("id")}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("incident_title")}
+                      >
+                        <div className="flex items-center gap-2">
+                          Title
+                          {getSortIcon("incident_title")}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("category_id")}
+                      >
+                        <div className="flex items-center gap-2">
+                          Category
+                          {getSortIcon("category_id")}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("incident_date")}
+                      >
+                        <div className="flex items-center gap-2">
+                          Date & Time
+                          {getSortIcon("incident_date")}
+                        </div>
+                      </TableHead>
+                      <TableHead className="min-w-[18rem]">Location</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("status")}
+                      >
+                        <div className="flex items-center gap-2">
+                          Status
+                          {getSortIcon("status")}
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredIncidents.map((report) => {
+                    {sortedIncidents.map((report) => {
                       const isArchivedFlag = Boolean(report.is_archived)
                       const isArchivedStatus = report.status === 'archived'
                       const isLocallyArchived = archivedIds.has(report.id.toString())
@@ -303,12 +379,6 @@ export default function IncidentsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            <span>{report.reporter_id}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
                           <div className="flex items-center gap-1 text-sm">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
                             {report.incident_date}
@@ -326,7 +396,6 @@ export default function IncidentsPage() {
                              </span>
                            </div>
                          </TableCell>
-                        <TableCell>{getSeverityBadge("medium")}</TableCell>
                         <TableCell>{getStatusBadge(report.status)}</TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-2">
