@@ -61,17 +61,25 @@ export default function IncidentsPage() {
 	// Confirmation dialog state
 	const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
+	// Detail view dialog state
+	const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+	const [selectedReportForDetail, setSelectedReportForDetail] = useState<Report | null>(null)
+
 	const getStatusBadge = (status?: string | null) => {
-		const variants: Record<string, "default" | "warning" | "success" | "destructive"> = {
-			pending: "warning",
-			assigned: "default",
-			"in-progress": "default",
-			resolved: "success",
-			cancelled: "destructive",
+		const getStatusClasses = (status?: string | null) => {
+			const base = "capitalize text-center"
+			switch(status) {
+				case "pending": return `${base} bg-yellow-500 text-white`
+				case "assigned": return `${base} bg-blue-500 text-white`
+				case "in-progress": return `${base} bg-orange-500 text-white`
+				case "resolved": return `${base} bg-green-500 text-white`
+				case "cancelled": return `${base} bg-red-500 text-white`
+				default: return `${base} bg-gray-500 text-white`
+			}
 		}
 		const txt = String(status ?? "unknown").replace("-", " ")
 		return (
-			<Badge variant={variants[status as string] || "default"} className="capitalize text-center">
+			<Badge className={getStatusClasses(status)}>
 				{txt}
 			</Badge>
 		)
@@ -531,9 +539,18 @@ export default function IncidentsPage() {
 													<TableCell>{getStatusBadge(report.status)}</TableCell>
 													<TableCell>
 														<div className="flex justify-end gap-2">
-															<Button variant="ghost" size="icon" disabled={isArchived} title={isArchived ? "Disabled for archived reports" : undefined}>
-																<Eye className="h-4 w-4" />
-															</Button>
+															<Button
+															variant="ghost"
+															 size="icon"
+											disabled={isArchived}
+											title={isArchived ? "Disabled for archived reports" : "View details"}
+											onClick={() => {
+												setSelectedReportForDetail(report)
+												setIsDetailDialogOpen(true)
+											}}
+										>
+											<Eye className="h-4 w-4" />
+										</Button>
 															<Button
 																variant="ghost"
 																size="icon"
@@ -923,6 +940,263 @@ export default function IncidentsPage() {
 					</DialogContent>
 				</DialogPortal>
 			</Dialog>
+
+			{/* Detail View Dialog */}
+			<Dialog open={isDetailDialogOpen} onOpenChange={(open) => {
+				if (!open) {
+					setIsDetailDialogOpen(false)
+					setSelectedReportForDetail(null)
+				} else {
+					setIsDetailDialogOpen(open)
+				}
+			}}>
+				<DialogPortal>
+					<DialogOverlay />
+					<DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+						<DialogHeader>
+							<DialogTitle>Report Details</DialogTitle>
+						</DialogHeader>
+						{selectedReportForDetail && (
+							<div className="space-y-6">
+								{/* Basic Information */}
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div>
+										<div className="text-sm text-muted-foreground mb-1">Report ID</div>
+										<div className="font-medium">#{String(selectedReportForDetail.id).slice(-8)}</div>
+									</div>
+									<div>
+										<div className="text-sm text-muted-foreground mb-1">Status</div>
+										<div>{getStatusBadge(selectedReportForDetail.status)}</div>
+									</div>
+									<div>
+										<div className="text-sm text-muted-foreground mb-1">Created At</div>
+										<div className="font-medium">
+											{new Date(selectedReportForDetail.created_at).toLocaleString()}
+										</div>
+									</div>
+									<div>
+										<div className="text-sm text-muted-foreground mb-1">Archived</div>
+										<div className="font-medium">
+											{selectedReportForDetail.is_archived ? 'Yes' : 'No'}
+										</div>
+									</div>
+								</div>
+
+								{/* Incident Details */}
+								<div>
+									<div className="text-lg font-semibold mb-3 flex items-center gap-2">
+										<AlertTriangle className="h-5 w-5 text-red-500" />
+										Incident Information
+									</div>
+									<div className="space-y-3">
+										<div>
+											<div className="text-sm text-muted-foreground mb-1">Title</div>
+											<div className="font-medium text-lg">{selectedReportForDetail.incident_title}</div>
+										</div>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<div>
+												<div className="text-sm text-muted-foreground mb-1">Date</div>
+												<div className="font-medium flex items-center gap-2">
+													<Calendar className="h-4 w-4" />
+													{selectedReportForDetail.incident_date}
+												</div>
+											</div>
+											<div>
+												<div className="text-sm text-muted-foreground mb-1">Time</div>
+												<div className="font-medium">{selectedReportForDetail.incident_time || 'Not specified'}</div>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								{/* Location */}
+								<div>
+									<div className="text-lg font-semibold mb-3 flex items-center gap-2">
+										<MapPin className="h-5 w-5 text-blue-500" />
+										Location
+									</div>
+									<div className="space-y-2">
+										<div>
+											<div className="text-sm text-muted-foreground mb-1">Street Address</div>
+											<div className="font-medium">{selectedReportForDetail.street_address || 'Not specified'}</div>
+										</div>
+										{(selectedReportForDetail.city || selectedReportForDetail.province) && (
+											<div>
+												<div className="text-sm text-muted-foreground mb-1">City & Province</div>
+												<div className="font-medium">
+													{[selectedReportForDetail.city, selectedReportForDetail.province].filter(Boolean).join(', ')}
+												</div>
+											</div>
+										)}
+										{selectedReportForDetail.nearby_landmark && (
+											<div>
+												<div className="text-sm text-muted-foreground mb-1">Nearby Landmark</div>
+												<div className="font-medium">{selectedReportForDetail.nearby_landmark}</div>
+											</div>
+										)}
+										{(selectedReportForDetail.latitude !== null && selectedReportForDetail.longitude !== null) && (
+											<div>
+												<div className="text-sm text-muted-foreground mb-1">Coordinates</div>
+												<div className="font-medium font-mono text-sm">
+													{selectedReportForDetail.latitude}, {selectedReportForDetail.longitude}
+												</div>
+											</div>
+										)}
+									</div>
+								</div>
+
+								{/* Category */}
+								<div>
+									<div className="text-lg font-semibold mb-3">Category</div>
+									<div className="flex items-center gap-2">
+										<div className="font-medium">{getCategoryName(selectedReportForDetail.category_id)}</div>
+										{selectedReportForDetail.sub_category !== null && selectedReportForDetail.sub_category !== undefined && (
+											<>
+												<span className="text-muted-foreground">•</span>
+												<div className="font-medium text-muted-foreground">{getSubcategoryName(selectedReportForDetail.category_id, selectedReportForDetail.sub_category)}</div>
+											</>
+										)}
+									</div>
+								</div>
+
+								{/* What Happened */}
+								{selectedReportForDetail.what_happened && (
+									<div>
+										<div className="text-lg font-semibold mb-3">What Happened</div>
+										<div className="bg-muted p-3 rounded-lg">
+											<div className="whitespace-pre-wrap">{selectedReportForDetail.what_happened}</div>
+										</div>
+									</div>
+								)}
+
+								{/* Additional Incident Details */}
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									{selectedReportForDetail.who_was_involved && (
+										<div>
+											<div className="text-sm text-muted-foreground mb-1">Who Was Involved</div>
+											<div className="font-medium">{selectedReportForDetail.who_was_involved}</div>
+										</div>
+									)}
+									{selectedReportForDetail.number_of_witnesses && (
+										<div>
+											<div className="text-sm text-muted-foreground mb-1">Number of Witnesses</div>
+											<div className="font-medium">{selectedReportForDetail.number_of_witnesses}</div>
+										</div>
+									)}
+									{selectedReportForDetail.injuries_reported && (
+										<div>
+											<div className="text-sm text-muted-foreground mb-1">Injuries Reported</div>
+											<div className="font-medium">{selectedReportForDetail.injuries_reported}</div>
+										</div>
+									)}
+									{selectedReportForDetail.property_damage && (
+										<div>
+											<div className="text-sm text-muted-foreground mb-1">Property Damage</div>
+											<div className="font-medium">{selectedReportForDetail.property_damage}</div>
+										</div>
+									)}
+								</div>
+
+								{/* Suspect & Witness Information */}
+								{(selectedReportForDetail.suspect_description || selectedReportForDetail.witness_contact_info) && (
+									<div className="space-y-3">
+										{selectedReportForDetail.suspect_description && (
+											<div>
+												<div className="text-lg font-semibold mb-2">Suspect Description</div>
+												<div className="bg-muted p-3 rounded-lg">
+													<div className="whitespace-pre-wrap">{selectedReportForDetail.suspect_description}</div>
+												</div>
+											</div>
+										)}
+										{selectedReportForDetail.witness_contact_info && (
+											<div>
+												<div className="text-lg font-semibold mb-2">Witness Contact Information</div>
+												<div className="bg-muted p-3 rounded-lg">
+													<div className="whitespace-pre-wrap">{selectedReportForDetail.witness_contact_info}</div>
+												</div>
+											</div>
+										)}
+									</div>
+								)}
+
+								{/* Report Preferences */}
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									{selectedReportForDetail.attachments && selectedReportForDetail.attachments.length > 0 && (
+										<div>
+											<div className="text-sm text-muted-foreground mb-1">Attachments</div>
+											<div className="font-medium">{selectedReportForDetail.attachments.length} file(s)</div>
+										</div>
+									)}
+								</div>
+
+								{/* Description */}
+								{selectedReportForDetail.description && (
+									<div>
+										<div className="text-lg font-semibold mb-3">Description</div>
+										<div className="bg-muted p-3 rounded-lg">
+											<div className="whitespace-pre-wrap">{selectedReportForDetail.description}</div>
+										</div>
+									</div>
+								)}
+
+								{/* Admin Notes */}
+								{selectedReportForDetail.admin_notes && (
+									<div>
+										<div className="text-lg font-semibold mb-3">Admin Notes</div>
+										<div className="bg-muted p-3 rounded-lg border-l-4 border-orange-500">
+											<div className="whitespace-pre-wrap text-orange-800">{selectedReportForDetail.admin_notes}</div>
+										</div>
+									</div>
+								)}
+
+								{/* Assigned Officers */}
+								<div>
+									<div className="text-lg font-semibold mb-3">Assigned Officers</div>
+									<div className="bg-muted p-3 rounded-lg">
+										{officersLoading ? (
+											<div>Loading officers...</div>
+										) : (
+											(() => {
+												const assignedOfficers = officers.filter(officer => officer.assigned_report_id === selectedReportForDetail.id)
+												if (assignedOfficers.length === 0) {
+													return <div className="text-muted-foreground">No officers assigned</div>
+												}
+												return (
+													<div className="space-y-2">
+														{assignedOfficers.map(officer => (
+															<div key={officer.id} className="flex items-center gap-2">
+																<div className="w-2 h-2 rounded-full bg-blue-500"></div>
+																<div className="font-medium">
+																	{officer.first_name} {officer.middle_name} {officer.last_name}
+																</div>
+																<div className="text-sm text-muted-foreground">
+																	{officer.rank} • Badge #{officer.badge_number}
+																</div>
+															</div>
+														))}
+													</div>
+												)
+											})()
+										)}
+									</div>
+								</div>
+							</div>
+						)}
+						<DialogFooter>
+							<Button
+								variant="outline"
+								onClick={() => {
+									setIsDetailDialogOpen(false)
+									setSelectedReportForDetail(null)
+								}}
+							>
+								Close
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</DialogPortal>
+			</Dialog>
+
 		</div >
 	)
 }
