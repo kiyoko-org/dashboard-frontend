@@ -533,8 +533,8 @@ export default function IncidentsPage() {
 																	setOfficerSearchQuery("")
 																	setIsAssignDialogOpen(true)
 																}}
-																title="Assign officers"
-																disabled={isArchived}
+																title={report.status === 'resolved' ? "Cannot assign to resolved report" : "Assign officers"}
+																disabled={isArchived || report.status === 'resolved'}
 															>
 																<UserPlus className="h-4 w-4" />
 															</Button>
