@@ -71,7 +71,7 @@ export default function IncidentsPage() {
 		}
 		const txt = String(status ?? "unknown").replace("-", " ")
 		return (
-			<Badge variant={variants[status as string] || "default"} className="capitalize">
+			<Badge variant={variants[status as string] || "default"} className="capitalize text-center">
 				{txt}
 			</Badge>
 		)
