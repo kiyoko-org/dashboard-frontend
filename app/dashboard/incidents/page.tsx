@@ -58,6 +58,9 @@ export default function IncidentsPage() {
 	const [officerSearchQuery, setOfficerSearchQuery] = useState("")
 	const [isAssigning, setIsAssigning] = useState(false)
 
+	// Confirmation dialog state
+	const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+
 	const getStatusBadge = (status?: string | null) => {
 		const variants: Record<string, "default" | "warning" | "success" | "destructive"> = {
 			pending: "warning",
@@ -222,8 +225,15 @@ export default function IncidentsPage() {
 			setSelectedReport(null)
 			return
 		}
+
+		if (editedStatus === 'cancelled' && !showCancelConfirm) {
+			setShowCancelConfirm(true)
+			return
+		}
+
 		setSaving(true)
 		setUpdateError(null)
+		setShowCancelConfirm(false)
 		try {
 			const client = getDispatchClient()
 			
@@ -579,14 +589,15 @@ export default function IncidentsPage() {
 				)}
 			</div>
 
-			<Dialog open={isEditOpen} onOpenChange={(open) => {
-				if (!saving && !open) {
-					setIsEditOpen(false)
-					setSelectedReport(null)
-				} else {
-					setIsEditOpen(open)
-				}
-			}}>
+		<Dialog open={isEditOpen} onOpenChange={(open) => {
+			if (!saving && !open) {
+				setIsEditOpen(false)
+				setSelectedReport(null)
+				setShowCancelConfirm(false)
+			} else {
+				setIsEditOpen(open)
+			}
+		}}>
 				<DialogPortal>
 					<DialogOverlay />
 					<DialogContent>
@@ -611,7 +622,14 @@ export default function IncidentsPage() {
 							</div>
 							<div>
 								<div className="text-sm text-muted-foreground mb-2">Status</div>
-								<Select value={editedStatus} onValueChange={(value) => setEditedStatus(value as ReportStatus)} disabled={saving}>
+								<Select 
+									value={editedStatus} 
+									onValueChange={(value) => {
+										setEditedStatus(value as ReportStatus)
+										setShowCancelConfirm(false)
+									}} 
+									disabled={saving}
+								>
 									<SelectTrigger>
 										<SelectValue placeholder="Select status" />
 									</SelectTrigger>
@@ -629,10 +647,40 @@ export default function IncidentsPage() {
 									{updateError}
 								</div>
 							)}
+							{showCancelConfirm && editedStatus === 'cancelled' && (
+								<div className="text-sm text-amber-600 border border-amber-300 rounded p-3 bg-amber-50">
+									<div className="font-medium mb-1">Are you sure?</div>
+									<div>This will cancel the report. This action cannot be undone.</div>
+								</div>
+							)}
 						</div>
 						<DialogFooter>
-							<Button variant="outline" onClick={() => { if (!saving) { setIsEditOpen(false); setSelectedReport(null) } }} disabled={saving}>Cancel</Button>
-							<Button onClick={handleSaveStatus} disabled={saveDisabled}>{saving ? "Saving..." : (selectedReport && editedStatus === (selectedReport.status ?? 'pending') ? 'No Changes' : 'Save')}</Button>
+							<Button 
+								variant="outline" 
+								onClick={() => { 
+									if (!saving) { 
+										setIsEditOpen(false)
+										setSelectedReport(null)
+										setShowCancelConfirm(false)
+									} 
+								}} 
+								disabled={saving}
+							>
+								Cancel
+							</Button>
+							{showCancelConfirm && editedStatus === 'cancelled' ? (
+								<Button 
+									variant="destructive" 
+									onClick={handleSaveStatus} 
+									disabled={saving}
+								>
+									{saving ? "Cancelling Report..." : "Yes, Cancel Report"}
+								</Button>
+							) : (
+								<Button onClick={handleSaveStatus} disabled={saveDisabled}>
+									{saving ? "Saving..." : (selectedReport && editedStatus === (selectedReport.status ?? 'pending') ? 'No Changes' : 'Save')}
+								</Button>
+							)}
 						</DialogFooter>
 					</DialogContent>
 				</DialogPortal>
