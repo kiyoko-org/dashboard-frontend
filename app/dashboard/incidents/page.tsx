@@ -823,6 +823,20 @@ export default function IncidentsPage() {
 															e.stopPropagation()
 															try {
 																const client = getDispatchClient()
+
+																// Get current report status
+																const { data: report, error: reportError } = await client.supabaseClient
+																	.from('reports')
+																	.select('status')
+																	.eq('id', selectedReportForAssignment?.id)
+																	.single()
+
+																if (reportError) {
+																	console.error('Failed to fetch report status:', reportError)
+																	return
+																}
+
+																// Unassign the officer
 																const { error } = await client.supabaseClient
 																	.from('officers')
 																	.update({ assigned_report_id: null })
@@ -830,6 +844,18 @@ export default function IncidentsPage() {
 
 																if (error) {
 																	console.error(`Failed to unassign officer ${officer.id}:`, error)
+																	return
+																}
+
+																// Check if any officers are still assigned
+																const { count } = await client.supabaseClient
+																	.from('officers')
+																	.select('*', { count: 'exact', head: true })
+																	.eq('assigned_report_id', selectedReportForAssignment?.id)
+
+																if (count === 0 && report.status === 'assigned') {
+																	// Update report status to pending
+																	await client.updateReport(selectedReportForAssignment!.id, { status: 'pending' })
 																}
 															} catch (error) {
 																console.error("Failed to unassign officer:", error)
