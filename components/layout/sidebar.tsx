@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   AlertTriangle,
   Users,
-  Bell,
   Settings,
   BadgeCheck,
   Database,
@@ -36,11 +35,7 @@ const navigation = [
     href: "/dashboard/officers",
     icon: ShieldCheck,
   },
-  {
-    name: "Emergency Response",
-    href: "/dashboard/emergency",
-    icon: Bell,
-  },
+
   {
     name: "Incidents",
     href: "/dashboard/incidents",
