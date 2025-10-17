@@ -18,8 +18,6 @@ import {
 import {
 	Search,
 	Download,
-	Edit,
-	Archive,
 	CheckCircle,
 	User,
 	Mail,
@@ -174,7 +172,6 @@ export default function UsersPage() {
 									<TableHead>Reports</TableHead>
 									<TableHead>Joined</TableHead>
 									<TableHead>Last Active</TableHead>
-									<TableHead className="text-right">Actions</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -218,21 +215,6 @@ export default function UsersPage() {
 										</TableCell>
 										<TableCell className="text-sm text-muted-foreground">
 											{user.lastActive}
-										</TableCell>
-										<TableCell>
-											<div className="flex justify-end gap-2">
-												
-												<Button variant="ghost" size="icon" title="Edit User">
-													<Edit className="h-4 w-4" />
-												</Button>
-												<Button
-													variant="ghost"
-													size="icon"
-													title="Archive User"
-												>
-													<Archive className="h-4 w-4 text-orange-500" />
-												</Button>
-											</div>
 										</TableCell>
 									</TableRow>
 								))}
