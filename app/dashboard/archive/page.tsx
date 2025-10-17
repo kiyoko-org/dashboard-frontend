@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -23,6 +23,8 @@ import {
   Calendar,
   MapPin,
 } from "lucide-react"
+import { useReports } from "@/lib/new/useReports"
+import { supabase } from "@/lib/new/supabase"
 
 type ArchiveType = "incidents" | "users" | "emergency" | "all"
 type ArchivedStatus = "archived" | "deleted"
@@ -41,20 +43,20 @@ interface ArchivedItem {
 }
 
 export default function ArchivePage() {
+  const { reports, loading, error } = useReports()
   const [typeFilter, setTypeFilter] = useState<ArchiveType>("all")
   const [statusFilter, setStatusFilter] = useState<ArchivedStatus | "all">("all")
   const [dateFilter, setDateFilter] = useState("all")
 
-  // Start with empty archived data - fresh start
-  const [archivedItems] = useState<ArchivedItem[]>([])
+  const archivedItems = reports.filter((report) => (report as any).is_archived)
 
   const filteredItems = archivedItems.filter((item) => {
-    const matchesType = typeFilter === "all" || item.type === typeFilter
-    const matchesStatus = statusFilter === "all" || item.archiveStatus === statusFilter
-    
+    const matchesType = typeFilter === "all" || "incidents" === typeFilter // All archived are incidents for now
+    const matchesStatus = statusFilter === "all" || (item.status === 'cancelled' ? "deleted" : "archived") === statusFilter
+
     let matchesDate = true
     if (dateFilter !== "all") {
-      const itemDate = new Date(item.archivedDate)
+      const itemDate = new Date(item.updated_at)
       const now = new Date()
       const daysAgo = parseInt(dateFilter)
       const filterDate = new Date(now.setDate(now.getDate() - daysAgo))
@@ -66,9 +68,24 @@ export default function ArchivePage() {
 
   const stats = {
     total: archivedItems.length,
-    incidents: archivedItems.filter((i) => i.type === "incidents").length,
-    users: archivedItems.filter((i) => i.type === "users").length,
-    emergency: archivedItems.filter((i) => i.type === "emergency").length,
+    incidents: archivedItems.length, // All are incidents
+    users: 0,
+    emergency: 0,
+  }
+
+  const handleRestore = async (reportId: string) => {
+    try {
+      const { error } = await supabase
+        .from('reports')
+        .update({ is_archived: false })
+        .eq('id', reportId)
+
+      if (error) throw error
+
+      // Optionally refetch or update local state
+    } catch (error) {
+      console.error('Failed to restore report:', error)
+    }
   }
 
   const getTypeBadge = (type: ArchiveType) => {
@@ -82,13 +99,28 @@ export default function ArchivePage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
-  const getStatusBadge = (status: ArchivedStatus) => {
-    return status === "archived" ? (
-      <Badge variant="default">Archived</Badge>
-    ) : (
-      <Badge variant="destructive">Deleted</Badge>
+  const getStatusBadge = (status: string) => {
+    const getStatusClasses = (status?: string | null) => {
+      const base = "capitalize text-center"
+      switch(status) {
+        case "pending": return `${base} bg-yellow-500 text-white`
+        case "assigned": return `${base} bg-blue-500 text-white`
+        case "in-progress": return `${base} bg-orange-500 text-white`
+        case "resolved": return `${base} bg-green-500 text-white`
+        case "cancelled": return `${base} bg-red-500 text-white`
+        default: return `${base} bg-gray-500 text-white`
+      }
+    }
+    const txt = String(status ?? "unknown").replace("-", " ")
+    return (
+      <Badge className={getStatusClasses(status)}>
+        {txt}
+      </Badge>
     )
   }
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error}</div>
 
   return (
     <div className="flex flex-col">
@@ -148,33 +180,48 @@ export default function ArchivePage() {
                 {/* Type Filter */}
                 <Select
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value as ArchiveType)}
+                  onValueChange={(value) => setTypeFilter(value as ArchiveType)}
                 >
-                  <option value="all">All Types</option>
-                  <option value="incidents">Incidents</option>
-                  <option value="users">Users</option>
-                  <option value="emergency">Emergency</option>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="incidents">Incidents</SelectItem>
+                    <SelectItem value="users">Users</SelectItem>
+                    <SelectItem value="emergency">Emergency</SelectItem>
+                  </SelectContent>
                 </Select>
 
                 {/* Status Filter */}
                 <Select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as ArchivedStatus | "all")}
+                  onValueChange={(value) => setStatusFilter(value as ArchivedStatus | "all")}
                 >
-                  <option value="all">All Status</option>
-                  <option value="archived">Archived</option>
-                  <option value="deleted">Deleted</option>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                    <SelectItem value="deleted">Deleted</SelectItem>
+                  </SelectContent>
                 </Select>
 
                 {/* Date Filter */}
                 <Select
                   value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
+                  onValueChange={(value) => setDateFilter(value)}
                 >
-                  <option value="all">All Time</option>
-                  <option value="7">Last 7 Days</option>
-                  <option value="30">Last 30 Days</option>
-                  <option value="90">Last 90 Days</option>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="7">Last 7 Days</SelectItem>
+                    <SelectItem value="30">Last 30 Days</SelectItem>
+                    <SelectItem value="90">Last 90 Days</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
 
@@ -221,57 +268,46 @@ export default function ArchivePage() {
                   filteredItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">
-                        #{item.id}
+                        #{item.id.slice(-8)}
                       </TableCell>
-                      <TableCell>{getTypeBadge(item.type)}</TableCell>
+                      <TableCell>{getTypeBadge("incidents")}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {item.type === "incidents" ? (
-                            <AlertTriangle className="h-4 w-4 text-orange-500" />
-                          ) : item.type === "users" ? (
-                            <UserIcon className="h-4 w-4 text-blue-500" />
-                          ) : (
-                            <ArchiveIcon className="h-4 w-4 text-gray-500" />
-                          )}
-                          <span className="font-medium">{item.title}</span>
+                          <AlertTriangle className="h-4 w-4 text-orange-500" />
+                          <span className="font-medium">{item.incident_title}</span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          {item.category && (
-                            <div className="font-medium">{item.category}</div>
-                          )}
+                          <div className="font-medium">{item.incident_category} - {item.incident_subcategory}</div>
                           <div className="text-muted-foreground">
-                            {item.description}
+                            {item.brief_description}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {item.location ? (
-                          <div className="flex items-center gap-1 text-sm">
-                            <MapPin className="h-3 w-3 text-muted-foreground" />
-                            {item.location}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+                        <div className="flex items-center gap-1 text-sm">
+                          <MapPin className="h-3 w-3 text-muted-foreground" />
+                          {item.street_address}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
                           <Calendar className="h-3 w-3 text-muted-foreground" />
-                          {item.archivedDate}
+                          {new Date(item.updated_at).toLocaleDateString()}
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {item.archivedBy}
+                        {(item as any).profiles ? `${(item as any).profiles.first_name} ${(item as any).profiles.last_name}` : 'Unknown'}
                       </TableCell>
-                      <TableCell>{getStatusBadge(item.archiveStatus)}</TableCell>
+                      <TableCell>{getStatusBadge(item.status)}</TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
                             title="Restore"
+                            onClick={() => handleRestore(item.id)}
                           >
                             <RotateCcw className="h-4 w-4 text-blue-500" />
                           </Button>

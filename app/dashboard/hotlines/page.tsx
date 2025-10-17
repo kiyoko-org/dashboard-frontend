@@ -1,6 +1,6 @@
 "use client"
 
-import { hotlineSchema, useHotlines } from "dispatch-lib"
+import { useHotlines } from "dispatch-lib"
 
 import {
 	Table,
@@ -31,6 +31,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { uppercaseFirstLetter } from "@/lib/utils"
 import { Header } from "@/components/layout/header"
+import { z } from "zod"
+
+const hotlineSchema = z.object({
+	name: z.string().min(1, "Name is required"),
+	description: z.string().optional(),
+	phone_number: z.string().regex(/^\d+$/, "Phone number must contain only digits").min(3, "Phone number must be at least 3 digits").max(11, "Phone number must be at most 11 digits"),
+	available: z.boolean()
+})
 
 export default function HotlinesPage() {
 	const { hotlines, deleteHotline, addHotline, updateHotline } = useHotlines()
@@ -50,7 +58,6 @@ export default function HotlinesPage() {
 			available: true
 		},
 		validators: {
-			// @ts-ignore
 			onSubmit: hotlineSchema
 		},
 		onSubmit: async ({ value }) => {
@@ -70,7 +77,6 @@ export default function HotlinesPage() {
 			available: true
 		},
 		validators: {
-			// @ts-ignore
 			onSubmit: hotlineSchema
 		},
 		onSubmit: async ({ value }) => {
