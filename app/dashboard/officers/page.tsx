@@ -1,6 +1,7 @@
 "use client"
 
 import { getDispatchClient, useOfficers } from "dispatch-lib"
+import { Pencil, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
 	Dialog,
@@ -53,6 +54,15 @@ const officerSchema = z.object({
 	password: z.string().min(6, "Password must be at least 6 characters"),
 })
 
+const editOfficerSchema = z.object({
+	badge_number: z.string().regex(/^\d+$/, {
+		message: 'String must contain only digits (0-9).',
+	}).min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
+	first_name: z.string().min(1, "First name is required"),
+	middle_name: z.string().optional(),
+	last_name: z.string().min(1, "Last name is required"),
+})
+
 export default function OfficersPage() {
 	const [addOpen, setAddOpen] = useState(false)
 	const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -60,8 +70,12 @@ export default function OfficersPage() {
 	const [rankSearch, setRankSearch] = useState("")
 	const [showRankDropdown, setShowRankDropdown] = useState(false)
 	const rankDropdownRef = useRef<HTMLDivElement>(null)
+	const [editOpen, setEditOpen] = useState(false)
+	const [editingOfficer, setEditingOfficer] = useState<any>(null)
+	const [deleteOpen, setDeleteOpen] = useState(false)
+	const [deletingOfficer, setDeletingOfficer] = useState<any>(null)
 
-	const { officers, loading } = useOfficers()
+	const { officers, loading, updateOfficer, deleteOfficer } = useOfficers()
 
 	useEffect(() => {
 		console.log(officers)
@@ -131,6 +145,78 @@ export default function OfficersPage() {
 			}
 		}
 	})
+
+	const editForm = useForm({
+		defaultValues: {
+			badge_number: editingOfficer?.badge_number || "",
+			first_name: editingOfficer?.first_name || "",
+			middle_name: editingOfficer?.middle_name || "",
+			last_name: editingOfficer?.last_name || "",
+		},
+		validators: {
+			onSubmit: editOfficerSchema
+		},
+		onSubmit: async ({ value }) => {
+			try {
+				setErrorMessage(null)
+				setSuccessMessage(null)
+
+				const result = await updateOfficer(editingOfficer.id, {
+					badge_number: value.badge_number,
+					first_name: value.first_name,
+					middle_name: value.middle_name,
+					last_name: value.last_name
+				})
+
+				if (result.error) {
+					console.error("something happened", result.error)
+					setErrorMessage(result.error.message)
+					return
+				}
+
+				setSuccessMessage(`Officer ${value.first_name} ${value.last_name} updated successfully!`)
+				setEditOpen(false)
+				setEditingOfficer(null)
+				editForm.reset()
+			} catch (error) {
+				setErrorMessage(error instanceof Error ? error.message : "Failed to update officer")
+			}
+		}
+	})
+
+	useEffect(() => {
+		if (editingOfficer) {
+			editForm.reset({
+				badge_number: editingOfficer.badge_number || "",
+				first_name: editingOfficer.first_name || "",
+				middle_name: editingOfficer.middle_name || "",
+				last_name: editingOfficer.last_name || "",
+			})
+		}
+	}, [editingOfficer, editForm])
+
+	const handleDeleteOfficer = async () => {
+		if (!deletingOfficer) return
+
+		try {
+			setErrorMessage(null)
+			setSuccessMessage(null)
+
+			const result = await deleteOfficer(deletingOfficer.id)
+
+			if (result.error) {
+				console.error("Error deleting officer:", result.error)
+				setErrorMessage(result.error.message)
+				return
+			}
+
+			setSuccessMessage(`Officer ${deletingOfficer.first_name} ${deletingOfficer.last_name} deleted successfully!`)
+			setDeleteOpen(false)
+			setDeletingOfficer(null)
+		} catch (error) {
+			setErrorMessage(error instanceof Error ? error.message : "Failed to delete officer")
+		}
+	}
 
 	return (
 		<>
@@ -380,6 +466,195 @@ export default function OfficersPage() {
 				</DialogContent>
 			</Dialog>
 
+			<Dialog open={editOpen} onOpenChange={(open) => {
+				setEditOpen(open)
+				if (!open) {
+					editForm.reset()
+					setErrorMessage(null)
+					setEditingOfficer(null)
+				}
+			}}>
+				<DialogContent className="sm:max-w-2xl">
+					<DialogHeader>
+						<DialogTitle>Edit Officer</DialogTitle>
+						<DialogDescription>
+							Update officer information
+						</DialogDescription>
+					</DialogHeader>
+
+					<form
+						onSubmit={(e) => {
+							e.preventDefault()
+							editForm.handleSubmit()
+						}}
+					>
+						<FieldGroup className="space-y-4">
+							{/* Badge Number field */}
+							<editForm.Field
+								name="badge_number"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel htmlFor={field.name}>Badge Number *</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												type="number"
+												aria-invalid={isInvalid}
+												placeholder="12345"
+												autoComplete="off"
+											/>
+											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+										</Field>
+									)
+								}}
+							/>
+
+							{/* First Name, Middle Name, and Last Name in the same row */}
+							<div className="grid grid-cols-3 gap-4">
+								<editForm.Field
+									name="first_name"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel htmlFor={field.name}>First Name *</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="John"
+													autoComplete="off"
+												/>
+												{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											</Field>
+										)
+									}}
+								/>
+
+								<editForm.Field
+									name="middle_name"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel htmlFor={field.name}>Middle Name</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="Doe"
+													autoComplete="off"
+												/>
+												{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											</Field>
+										)
+									}}
+								/>
+
+								<editForm.Field
+									name="last_name"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel htmlFor={field.name}>Last Name *</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="Doe"
+													autoComplete="off"
+												/>
+												{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											</Field>
+										)
+									}}
+								/>
+							</div>
+
+							{errorMessage && (
+								<div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+									{errorMessage}
+								</div>
+							)}
+
+							<Button type="submit">Update Officer</Button>
+						</FieldGroup>
+					</form>
+
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={deleteOpen} onOpenChange={(open) => {
+				setDeleteOpen(open)
+				if (!open) {
+					setDeletingOfficer(null)
+					setErrorMessage(null)
+				}
+			}}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Delete Officer</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to delete this officer? This action cannot be undone.
+						</DialogDescription>
+					</DialogHeader>
+
+					{deletingOfficer && (
+						<div className="py-4">
+							<div className="bg-gray-50 p-4 rounded-lg">
+								<p className="font-medium">Officer Details:</p>
+								<p className="text-sm text-gray-600">
+									{deletingOfficer.first_name} {deletingOfficer.middle_name} {deletingOfficer.last_name}
+								</p>
+								<p className="text-sm text-gray-600">
+									Badge: {deletingOfficer.badge_number}
+								</p>
+							</div>
+						</div>
+					)}
+
+					{errorMessage && (
+						<div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+							{errorMessage}
+						</div>
+					)}
+
+					<div className="flex justify-end space-x-2">
+						<Button
+							variant="outline"
+							onClick={() => setDeleteOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleDeleteOfficer}
+						>
+							Delete Officer
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
+
 			<div className="flex-1 space-y-6 p-6">
 				{successMessage && (
 					<div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">
@@ -403,7 +678,9 @@ export default function OfficersPage() {
 									<TableRow>
 										<TableHead>Badge Number</TableHead>
 										<TableHead>First Name</TableHead>
+										<TableHead>Middle Name</TableHead>
 										<TableHead>Last Name</TableHead>
+										<TableHead>Actions</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -411,7 +688,32 @@ export default function OfficersPage() {
 										<TableRow key={officer.id}>
 											<TableCell>{officer.badge_number || 'N/A'}</TableCell>
 											<TableCell>{officer.first_name || 'N/A'}</TableCell>
+											<TableCell>{officer.middle_name || 'N/A'}</TableCell>
 											<TableCell>{officer.last_name || 'N/A'}</TableCell>
+											<TableCell>
+												<div className="flex space-x-2">
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => {
+															setEditingOfficer(officer)
+															setEditOpen(true)
+														}}
+													>
+														<Pencil className="h-4 w-4" />
+													</Button>
+													<Button
+														variant="destructive"
+														size="sm"
+														onClick={() => {
+															setDeletingOfficer(officer)
+															setDeleteOpen(true)
+														}}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+											</TableCell>
 										</TableRow>
 									))}
 								</TableBody>
