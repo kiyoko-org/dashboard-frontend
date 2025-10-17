@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   Users,
   Settings,
-  BadgeCheck,
   Database,
   Archive,
   Phone,
@@ -45,11 +44,6 @@ const navigation = [
     name: "Hotlines",
     href: "/dashboard/hotlines",
     icon: Phone,
-  },
-  {
-    name: "Verification",
-    href: "/dashboard/verification",
-    icon: BadgeCheck,
   },
   {
     name: "Database",
