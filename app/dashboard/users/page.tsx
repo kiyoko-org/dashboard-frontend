@@ -18,7 +18,6 @@ import {
 import {
 	Search,
 	Download,
-	Eye,
 	Edit,
 	Archive,
 	CheckCircle,
@@ -222,9 +221,7 @@ export default function UsersPage() {
 										</TableCell>
 										<TableCell>
 											<div className="flex justify-end gap-2">
-												<Button variant="ghost" size="icon" title="View Details">
-													<Eye className="h-4 w-4" />
-												</Button>
+												
 												<Button variant="ghost" size="icon" title="Edit User">
 													<Edit className="h-4 w-4" />
 												</Button>
