@@ -60,6 +60,7 @@ export default function IncidentsPage() {
 
 	// Confirmation dialog state
 	const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+	const [confirmArchiveReport, setConfirmArchiveReport] = useState<Report | null>(null)
 
 	// Detail view dialog state
 	const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
@@ -587,19 +588,7 @@ export default function IncidentsPage() {
 															variant="ghost"
 															size="icon"
 															title="Archive"
-															onClick={async () => {
-															try {
-															const client = getDispatchClient()
-															const result = await client.archiveReport(report.id)
-															if (result.error) {
-															console.error("Failed to archive report:", result.error)
-															return
-															}
-															setArchivedIds((prev) => new Set(prev).add(report.id.toString()))
-															} catch (e) {
-															console.error("Failed to archive report:", e)
-															}
-															}}
+															onClick={() => setConfirmArchiveReport(report)}
 															disabled={isArchived || report.status !== 'resolved'}
 															>
 															<Archive className={`h-4 w-4 ${isArchived || report.status !== 'resolved' ? 'text-gray-400' : 'text-orange-500'}`} />
@@ -1226,6 +1215,38 @@ export default function IncidentsPage() {
 						</DialogFooter>
 					</DialogContent>
 				</DialogPortal>
+			</Dialog>
+
+			{/* Archive Confirmation Dialog */}
+			<Dialog open={!!confirmArchiveReport} onOpenChange={(open) => !open && setConfirmArchiveReport(null)}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Archive Incident</DialogTitle>
+					</DialogHeader>
+					<p>Are you sure you want to archive "{confirmArchiveReport?.incident_title}"? This action will move the incident to archived status.</p>
+					<div className="flex gap-2 justify-end">
+						<Button variant="outline" onClick={() => setConfirmArchiveReport(null)}>
+							Cancel
+						</Button>
+						<Button variant="destructive" onClick={async () => {
+							if (!confirmArchiveReport) return
+							try {
+								const client = getDispatchClient()
+								const result = await client.archiveReport(confirmArchiveReport.id)
+								if (result.error) {
+									console.error("Failed to archive report:", result.error)
+									return
+								}
+								setArchivedIds((prev) => new Set(prev).add(confirmArchiveReport.id.toString()))
+								setConfirmArchiveReport(null)
+							} catch (e) {
+								console.error("Failed to archive report:", e)
+							}
+						}}>
+							Archive
+						</Button>
+					</div>
+				</DialogContent>
 			</Dialog>
 
 		</div >
