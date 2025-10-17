@@ -48,7 +48,7 @@ const officerSchema = z.object({
 	rank: z.string().min(1, "Rank is required"),
 	email: z.string().email("Invalid email address"),
 	first_name: z.string().min(1, "First name is required"),
-	middle_name: z.string().min(1, "First name is required"),
+	middle_name: z.string().optional(),
 	last_name: z.string().min(1, "Last name is required"),
 	password: z.string().min(6, "Password must be at least 6 characters"),
 })
@@ -299,7 +299,7 @@ export default function OfficersPage() {
 											field.state.meta.isTouched && !field.state.meta.isValid
 										return (
 											<Field data-invalid={isInvalid}>
-												<FieldLabel htmlFor={field.name}>Middle Name *</FieldLabel>
+												<FieldLabel htmlFor={field.name}>Middle Name</FieldLabel>
 												<Input
 													id={field.name}
 													name={field.name}
