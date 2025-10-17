@@ -23,8 +23,7 @@ import {
   Calendar,
   MapPin,
 } from "lucide-react"
-import { useReports } from "@/lib/new/useReports"
-import { supabase } from "@/lib/new/supabase"
+import { useRealtimeReports, getDispatchClient } from "dispatch-lib"
 
 type ArchiveType = "incidents" | "users" | "emergency" | "all"
 type ArchivedStatus = "archived" | "deleted"
@@ -43,7 +42,8 @@ interface ArchivedItem {
 }
 
 export default function ArchivePage() {
-  const { reports, loading, error } = useReports()
+  const { reports, loading, error } = useRealtimeReports()
+  const client = getDispatchClient()
   const [typeFilter, setTypeFilter] = useState<ArchiveType>("all")
   const [statusFilter, setStatusFilter] = useState<ArchivedStatus | "all">("all")
   const [dateFilter, setDateFilter] = useState("all")
@@ -56,7 +56,7 @@ export default function ArchivePage() {
 
     let matchesDate = true
     if (dateFilter !== "all") {
-      const itemDate = new Date(item.updated_at)
+      const itemDate = new Date(item.created_at)
       const now = new Date()
       const daysAgo = parseInt(dateFilter)
       const filterDate = new Date(now.setDate(now.getDate() - daysAgo))
@@ -73,16 +73,13 @@ export default function ArchivePage() {
     emergency: 0,
   }
 
-  const handleRestore = async (reportId: string) => {
+  const handleRestore = async (reportId: number) => {
     try {
-      const { error } = await supabase
-        .from('reports')
-        .update({ is_archived: false })
-        .eq('id', reportId)
+      const { error } = await client.updateReport(reportId, { is_archived: false })
 
       if (error) throw error
 
-      // Optionally refetch or update local state
+      // The realtime hook should update the local state automatically
     } catch (error) {
       console.error('Failed to restore report:', error)
     }
@@ -252,7 +249,6 @@ export default function ArchivePage() {
                   <TableHead>Category/Details</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Archived Date</TableHead>
-                  <TableHead>Archived By</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -260,15 +256,15 @@ export default function ArchivePage() {
               <TableBody>
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
-                      No archived items found
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    No archived items found
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">
-                        #{item.id.slice(-8)}
+                        #{String(item.id).slice(-8)}
                       </TableCell>
                       <TableCell>{getTypeBadge("incidents")}</TableCell>
                       <TableCell>
@@ -279,9 +275,9 @@ export default function ArchivePage() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div className="font-medium">{item.incident_category} - {item.incident_subcategory}</div>
+                          <div className="font-medium">Category {item.category_id} - Sub {item.sub_category}</div>
                           <div className="text-muted-foreground">
-                            {item.brief_description}
+                            {item.what_happened || 'No description'}
                           </div>
                         </div>
                       </TableCell>
@@ -292,13 +288,10 @@ export default function ArchivePage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          {new Date(item.updated_at).toLocaleDateString()}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {(item as any).profiles ? `${(item as any).profiles.first_name} ${(item as any).profiles.last_name}` : 'Unknown'}
+                      <div className="flex items-center gap-1 text-sm">
+                      <Calendar className="h-3 w-3 text-muted-foreground" />
+                      {item.archived_date ? new Date(item.archived_date).toLocaleDateString() : 'Unknown'}
+                      </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(item.status)}</TableCell>
                       <TableCell>
