@@ -23,7 +23,7 @@ import {
   Calendar,
   MapPin,
 } from "lucide-react"
-import { useRealtimeReports, getDispatchClient } from "dispatch-lib"
+import { useRealtimeReports, getDispatchClient, useCategories } from "dispatch-lib"
 
 type ArchiveType = "incidents" | "users" | "emergency" | "all"
 type ArchivedStatus = "archived" | "deleted"
@@ -43,10 +43,25 @@ interface ArchivedItem {
 
 export default function ArchivePage() {
   const { reports, loading, error } = useRealtimeReports()
+  const { categories } = useCategories()
   const client = getDispatchClient()
   const [typeFilter, setTypeFilter] = useState<ArchiveType>("all")
   const [statusFilter, setStatusFilter] = useState<ArchivedStatus | "all">("all")
   const [dateFilter, setDateFilter] = useState("all")
+
+  // Helper functions to get category and subcategory names
+  const getCategoryName = (categoryId?: number | null) => {
+    if (!categoryId || !categories) return "Unknown Category"
+    const category = categories.find(cat => cat.id === categoryId)
+    return category?.name || "Unknown Category"
+  }
+
+  const getSubcategoryName = (categoryId?: number | null, subcategoryIndex?: number | null) => {
+    if (!categoryId || subcategoryIndex === null || subcategoryIndex === undefined || !categories) return "Unknown Subcategory"
+    const category = categories.find(cat => cat.id === categoryId)
+    if (!category?.sub_categories || subcategoryIndex >= category.sub_categories.length) return "Unknown Subcategory"
+    return category.sub_categories[subcategoryIndex] || "Unknown Subcategory"
+  }
 
   const archivedItems = reports.filter((report) => (report as any).is_archived)
 
@@ -246,8 +261,9 @@ export default function ArchivePage() {
                   <TableHead>ID</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Title</TableHead>
-                  <TableHead>Category/Details</TableHead>
-                  <TableHead>Location</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Details</TableHead>
+                   <TableHead>Location</TableHead>
                   <TableHead>Archived Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -256,7 +272,7 @@ export default function ArchivePage() {
               <TableBody>
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                     No archived items found
                     </TableCell>
                   </TableRow>
@@ -268,18 +284,16 @@ export default function ArchivePage() {
                       </TableCell>
                       <TableCell>{getTypeBadge("incidents")}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-orange-500" />
-                          <span className="font-medium">{item.incident_title}</span>
-                        </div>
+                      <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-orange-500" />
+                      <span className="font-medium">{item.incident_title}</span>
+                      </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div className="font-medium">Category {item.category_id} - Sub {item.sub_category}</div>
-                          <div className="text-muted-foreground">
-                            {item.what_happened || 'No description'}
-                          </div>
-                        </div>
+                      <TableCell className="text-sm font-medium">
+                      {getCategoryName(item.category_id)} - {getSubcategoryName(item.category_id, item.sub_category)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                      {item.what_happened || 'No description'}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
