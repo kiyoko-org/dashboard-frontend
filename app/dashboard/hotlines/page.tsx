@@ -45,6 +45,7 @@ export default function HotlinesPage() {
 
 	const [editingHotline, setEditingHotline] = useState<number | null>(null)
 	const [addOpen, setAddOpen] = useState(false)
+	const [confirmDeleteHotline, setConfirmDeleteHotline] = useState<{ id: number; name: string } | null>(null)
 
 	const getHotline = (id: number) => {
 		return hotlines.find(h => h.id === id)
@@ -338,6 +339,28 @@ export default function HotlinesPage() {
 				</DialogContent>
 			</Dialog>
 
+			<Dialog open={!!confirmDeleteHotline} onOpenChange={(open) => !open && setConfirmDeleteHotline(null)}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete Hotline</DialogTitle>
+					</DialogHeader>
+					<p>Are you sure you want to delete "{confirmDeleteHotline?.name}"? This action cannot be undone.</p>
+					<div className="flex gap-2 justify-end">
+						<Button variant="outline" onClick={() => setConfirmDeleteHotline(null)}>
+							Cancel
+						</Button>
+						<Button variant="destructive" onClick={() => {
+							if (confirmDeleteHotline) {
+								deleteHotline(confirmDeleteHotline.id)
+								setConfirmDeleteHotline(null)
+							}
+						}}>
+							Delete
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
+
 			<Card className="m-4">
 				<CardHeader className="flex flex-row items-center justify-between">
 					<CardTitle>
@@ -387,7 +410,7 @@ export default function HotlinesPage() {
 													Edit
 												</DropdownMenuItem>
 												<DropdownMenuItem onClick={() => {
-													deleteHotline(hotline.id)
+													setConfirmDeleteHotline({ id: hotline.id, name: hotline.name })
 												}}>Delete</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>
