@@ -1,7 +1,7 @@
 "use client"
 
 import { useBarangays } from "dispatch-lib"
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2, Upload } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
 	Dialog,
@@ -31,6 +31,9 @@ export default function BarangaysPage() {
 	const [editingBarangay, setEditingBarangay] = useState<any>(null)
 	const [deleteOpen, setDeleteOpen] = useState(false)
 	const [deletingBarangay, setDeletingBarangay] = useState<any>(null)
+	const [uploadOpen, setUploadOpen] = useState(false)
+	const [uploading, setUploading] = useState(false)
+	const [uploadResults, setUploadResults] = useState<{ added: number; skipped: number; failed: number } | null>(null)
 
 	const { barangays, loading, addBarangay, updateBarangay, deleteBarangay } = useBarangays()
 
@@ -117,6 +120,48 @@ export default function BarangaysPage() {
 			setDeletingBarangay(null)
 		} catch (error) {
 			setErrorMessage(error instanceof Error ? error.message : "Failed to delete barangay")
+		}
+	}
+
+	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0]
+		if (!file) return
+
+		setUploading(true)
+		setErrorMessage(null)
+		setUploadResults(null)
+
+		try {
+			const text = await file.text()
+			const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+
+			const existingNames = new Set(barangays.map(b => b.name.toLowerCase()))
+			let added = 0
+			let skipped = 0
+			let failed = 0
+
+			for (const line of lines) {
+				if (existingNames.has(line.toLowerCase())) {
+					skipped++
+					continue
+				}
+
+				const result = await addBarangay({ name: line })
+				if (result.error) {
+					failed++
+				} else {
+					added++
+					existingNames.add(line.toLowerCase())
+				}
+			}
+
+			setUploadResults({ added, skipped, failed })
+			setSuccessMessage(`Upload complete: ${added} added, ${skipped} skipped, ${failed} failed`)
+		} catch (error) {
+			setErrorMessage(error instanceof Error ? error.message : "Failed to process file")
+		} finally {
+			setUploading(false)
+			event.target.value = ''
 		}
 	}
 
@@ -292,6 +337,57 @@ export default function BarangaysPage() {
 				</DialogContent>
 			</Dialog>
 
+			<Dialog open={uploadOpen} onOpenChange={(open) => {
+				setUploadOpen(open)
+				if (!open) {
+					setUploadResults(null)
+					setErrorMessage(null)
+				}
+			}}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Batch Upload Barangays</DialogTitle>
+						<DialogDescription>
+							Upload a text file with one barangay name per line
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-4">
+						<div>
+							<Input
+								type="file"
+								accept=".txt"
+								onChange={handleFileUpload}
+								disabled={uploading}
+							/>
+							<p className="text-xs text-gray-500 mt-2">
+								Format: One barangay name per line. Duplicates will be skipped.
+							</p>
+						</div>
+
+						{uploading && (
+							<div className="text-sm text-blue-600 bg-blue-50 p-3 rounded">
+								Processing file...
+							</div>
+						)}
+
+						{uploadResults && (
+							<div className="text-sm bg-gray-50 p-3 rounded space-y-1">
+								<p><strong>Added:</strong> {uploadResults.added}</p>
+								<p><strong>Skipped (duplicates):</strong> {uploadResults.skipped}</p>
+								<p><strong>Failed:</strong> {uploadResults.failed}</p>
+							</div>
+						)}
+
+						{errorMessage && (
+							<div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+								{errorMessage}
+							</div>
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
+
 			<div className="flex-1 space-y-6 p-6">
 				{successMessage && (
 					<div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">
@@ -302,9 +398,15 @@ export default function BarangaysPage() {
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between">
 						<CardTitle>Barangays</CardTitle>
-						<Button onClick={() => setAddOpen(true)}>
-							Add Barangay
-						</Button>
+						<div className="flex gap-2">
+							<Button variant="outline" onClick={() => setUploadOpen(true)}>
+								<Upload className="h-4 w-4 mr-2" />
+								Batch Upload
+							</Button>
+							<Button onClick={() => setAddOpen(true)}>
+								Add Barangay
+							</Button>
+						</div>
 					</CardHeader>
 					<CardContent>
 						{loading ? (
