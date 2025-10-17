@@ -107,6 +107,7 @@ export default function DatabasePage() {
 	const [editingCategory, setEditingCategory] = useState<{ id: number; name: string; sub_categories: string[] | null } | null>(null)
 	const [editSubcategories, setEditSubcategories] = useState<string[]>([])
 	const [editSubcategoryInput, setEditSubcategoryInput] = useState("")
+	const [confirmDeleteCategory, setConfirmDeleteCategory] = useState<{ id: number; name: string; sub_categories: string[] | null } | null>(null)
 	const [deletedCategory, setDeletedCategory] = useState<{ id: number; name: string; sub_categories: string[] | null } | null>(null)
 	const [undoTimer, setUndoTimer] = useState<number | null>(null)
 
@@ -275,7 +276,7 @@ export default function DatabasePage() {
 													<Button
 														variant="outline"
 														size="sm"
-														onClick={() => handleDelete(category)}
+														onClick={() => setConfirmDeleteCategory(category)}
 													>
 														<Trash2 className="h-4 w-4" />
 													</Button>
@@ -392,6 +393,28 @@ export default function DatabasePage() {
 							<Button type="submit">Update</Button>
 						</FieldGroup>
 					</form>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={!!confirmDeleteCategory} onOpenChange={(open) => !open && setConfirmDeleteCategory(null)}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete Category</DialogTitle>
+					</DialogHeader>
+					<p>Are you sure you want to delete "{confirmDeleteCategory?.name}"? You can undo the deletion within 5 seconds.</p>
+					<div className="flex gap-2 justify-end">
+						<Button variant="outline" onClick={() => setConfirmDeleteCategory(null)}>
+							Cancel
+						</Button>
+						<Button variant="destructive" onClick={() => {
+							if (confirmDeleteCategory) {
+								handleDelete(confirmDeleteCategory)
+								setConfirmDeleteCategory(null)
+							}
+						}}>
+							Delete
+						</Button>
+					</div>
 				</DialogContent>
 			</Dialog>
 		</>
