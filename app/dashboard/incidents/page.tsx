@@ -75,6 +75,7 @@ export default function IncidentsPage() {
 				case "in-progress": return `${base} bg-orange-500 text-white`
 				case "resolved": return `${base} bg-green-500 text-white`
 				case "cancelled": return `${base} bg-red-500 text-white`
+				case "unresolved": return `${base} bg-purple-500 text-white`
 				default: return `${base} bg-gray-500 text-white`
 			}
 		}
@@ -217,12 +218,13 @@ export default function IncidentsPage() {
 		pending: visibleReports.filter((r) => r.status === "pending").length,
 		investigating: visibleReports.filter((r) => r.status === "in-progress").length,
 		resolved: visibleReports.filter((r) => r.status === "resolved").length,
+		unresolved: visibleReports.filter((r) => r.status === "unresolved").length,
 	}
 
 	// Dialog state for editing status
 	const [isEditOpen, setIsEditOpen] = useState(false)
 	const [selectedReport, setSelectedReport] = useState<Report | null>(null)
-	type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled"
+	type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled" | "unresolved"
 	const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
 	const [saving, setSaving] = useState(false)
 	const [updateError, setUpdateError] = useState<string | null>(null)
@@ -313,7 +315,7 @@ export default function IncidentsPage() {
 				) : (
 					<>
 						{/* Stats Cards */}
-						<div className="grid gap-4 md:grid-cols-4">
+						<div className="grid gap-4 md:grid-cols-5">
 							<Card>
 								<CardHeader className="pb-2">
 									<CardTitle className="text-sm font-medium">
@@ -345,6 +347,17 @@ export default function IncidentsPage() {
 								<CardContent>
 									<div className="text-2xl font-bold text-blue-600">
 										{stats.investigating}
+									</div>
+								</CardContent>
+							</Card>
+
+							<Card>
+								<CardHeader className="pb-2">
+									<CardTitle className="text-sm font-medium">Unresolved</CardTitle>
+								</CardHeader>
+								<CardContent>
+									<div className="text-2xl font-bold text-purple-600">
+										{stats.unresolved}
 									</div>
 								</CardContent>
 							</Card>
@@ -386,6 +399,7 @@ export default function IncidentsPage() {
 												<SelectItem value="pending">Pending</SelectItem>
 												<SelectItem value="assigned">Assigned</SelectItem>
 												<SelectItem value="in-progress">In Progress</SelectItem>
+												<SelectItem value="unresolved">Unresolved</SelectItem>
 												<SelectItem value="resolved">Resolved</SelectItem>
 												<SelectItem value="cancelled">Cancelled</SelectItem>
 											</SelectContent>
@@ -654,6 +668,7 @@ export default function IncidentsPage() {
 										<SelectItem value="pending">Pending</SelectItem>
 										<SelectItem value="assigned">Assigned</SelectItem>
 										<SelectItem value="in-progress">In Progress</SelectItem>
+										<SelectItem value="unresolved">Unresolved</SelectItem>
 										<SelectItem value="resolved">Resolved</SelectItem>
 										<SelectItem value="cancelled">Cancelled</SelectItem>
 									</SelectContent>
