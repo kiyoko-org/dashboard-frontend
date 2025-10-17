@@ -244,7 +244,7 @@ export default function IncidentsPage() {
 		setShowCancelConfirm(false)
 		try {
 			const client = getDispatchClient()
-			
+
 			if (editedStatus === 'resolved') {
 				const { data: assignedOfficers, error: fetchError } = await client.supabaseClient
 					.from('officers')
@@ -269,7 +269,12 @@ export default function IncidentsPage() {
 				}
 			}
 
-			const result = await client.updateReport(selectedReport.id, { status: editedStatus })
+			const updateData = { status: editedStatus }
+			if (editedStatus === 'cancelled') {
+				updateData.is_archived = true
+			}
+
+			const result = await client.updateReport(selectedReport.id, updateData)
 			if (result.error) {
 				throw new Error(result.error.message || 'Failed to update status')
 			}

@@ -152,10 +152,11 @@ export default function HotlinesPage() {
 												name={field.name}
 												value={field.state.value}
 												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
+												onChange={(e) => field.handleChange(e.target.value.replace(/\D/g, ''))}
 												aria-invalid={isInvalid}
-												placeholder="+639123"
+												placeholder="639123"
 												autoComplete="off"
+												type="tel"
 											/>
 											{isInvalid && <FieldError errors={field.state.meta.errors} />}
 										</Field>
@@ -268,10 +269,11 @@ export default function HotlinesPage() {
 												name={field.name}
 												value={field.state.value}
 												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
+												onChange={(e) => field.handleChange(e.target.value.replace(/\D/g, ''))}
 												aria-invalid={isInvalid}
-												placeholder="+639123"
+												placeholder="639123"
 												autoComplete="off"
+												type="tel"
 											/>
 											{isInvalid && <FieldError errors={field.state.meta.errors} />}
 										</Field>
