@@ -91,10 +91,13 @@ export default function DatabasePage() {
 		setIsEditDialogOpen(true)
 	}
 
-	const handleDelete = async (id: number) => {
-		if (confirm("Are you sure you want to delete this category?")) {
-			await deleteCategory(id)
-		}
+	const handleDelete = (category: { id: number; name: string; sub_categories: string[] | null }) => {
+		setDeletedCategory(category)
+		const timer = setTimeout(async () => {
+			await deleteCategory(category.id)
+			setDeletedCategory(null)
+		}, 5000)
+		setUndoTimer(timer)
 	}
 
 	const [selectedTable, setSelectedTable] = useState<tableType>("categories")
@@ -104,6 +107,8 @@ export default function DatabasePage() {
 	const [editingCategory, setEditingCategory] = useState<{ id: number; name: string; sub_categories: string[] | null } | null>(null)
 	const [editSubcategories, setEditSubcategories] = useState<string[]>([])
 	const [editSubcategoryInput, setEditSubcategoryInput] = useState("")
+	const [deletedCategory, setDeletedCategory] = useState<{ id: number; name: string; sub_categories: string[] | null } | null>(null)
+	const [undoTimer, setUndoTimer] = useState<number | null>(null)
 
 	return (
 		<>
@@ -239,7 +244,7 @@ export default function DatabasePage() {
 									</TableRow>
 								</TableHeader>
 								<TableBody>
-									{categories.map((category) => (
+									{categories.filter(cat => cat.id !== deletedCategory?.id).map((category) => (
 										<TableRow key={category.id}>
 											<TableCell>{category.name}</TableCell>
 											<TableCell>
@@ -270,7 +275,7 @@ export default function DatabasePage() {
 													<Button
 														variant="outline"
 														size="sm"
-														onClick={() => handleDelete(category.id)}
+														onClick={() => handleDelete(category)}
 													>
 														<Trash2 className="h-4 w-4" />
 													</Button>
@@ -285,6 +290,24 @@ export default function DatabasePage() {
 				)}
 
 			</div >
+
+			{deletedCategory && (
+				<div className="fixed bottom-4 right-4 bg-destructive text-destructive-foreground p-4 rounded-md shadow-lg flex items-center gap-2">
+					<span>Category "{deletedCategory.name}" deleted.</span>
+					<Button
+						variant="outline"
+						size="sm"
+						className="bg-background text-foreground hover:bg-accent"
+						onClick={() => {
+							if (undoTimer) clearTimeout(undoTimer)
+							setDeletedCategory(null)
+							setUndoTimer(null)
+						}}
+					>
+						Undo
+					</Button>
+				</div>
+			)}
 
 			<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
 				<DialogContent>
