@@ -19,9 +19,12 @@ export default function DashboardPage() {
 
   const totalIncidents = reports?.length ?? 0
 
-  // Calculate resolution rate
+  // Calculate resolution rate (excluding cancelled cases)
   const resolvedCount = reports?.filter((r) => r.status === "resolved").length ?? 0
-  const resolutionRate = totalIncidents > 0 ? ((resolvedCount / totalIncidents) * 100).toFixed(1) : "0.0"
+  const unresolvedCount = reports?.filter((r) => r.status === "unresolved").length ?? 0
+  const cancelledCount = reports?.filter((r) => r.status === "cancelled").length ?? 0
+  const resolvableIncidents = totalIncidents - cancelledCount
+  const resolutionRate = resolvableIncidents > 0 ? ((resolvedCount / resolvableIncidents) * 100).toFixed(1) : "0.0"
 
   // Calculate incidents change from last month
   const now = new Date()
@@ -39,6 +42,7 @@ export default function DashboardPage() {
       pending: "warning",
       assigned: "default",
       "in-progress": "warning",
+      unresolved: "destructive",
       resolved: "success",
       cancelled: "destructive",
     }
