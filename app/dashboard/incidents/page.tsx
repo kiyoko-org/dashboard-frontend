@@ -584,25 +584,25 @@ export default function IncidentsPage() {
 																<Edit className="h-4 w-4" />
 															</Button>
 															<Button
-																variant="ghost"
-																size="icon"
-																title="Archive"
-																onClick={async () => {
-																	try {
-																		const client = getDispatchClient()
-																		const result = await client.archiveReport(report.id)
-																		if (result.error) {
-																			console.error("Failed to archive report:", result.error)
-																			return
-																		}
-																		setArchivedIds((prev) => new Set(prev).add(report.id.toString()))
-																	} catch (e) {
-																		console.error("Failed to archive report:", e)
-																	}
-																}}
-																disabled={isArchived}
+															variant="ghost"
+															size="icon"
+															title="Archive"
+															onClick={async () => {
+															try {
+															const client = getDispatchClient()
+															const result = await client.archiveReport(report.id)
+															if (result.error) {
+															console.error("Failed to archive report:", result.error)
+															return
+															}
+															setArchivedIds((prev) => new Set(prev).add(report.id.toString()))
+															} catch (e) {
+															console.error("Failed to archive report:", e)
+															}
+															}}
+															disabled={isArchived || report.status !== 'resolved'}
 															>
-																<Archive className="h-4 w-4 text-orange-500" />
+															<Archive className={`h-4 w-4 ${isArchived || report.status !== 'resolved' ? 'text-gray-400' : 'text-orange-500'}`} />
 															</Button>
 														</div>
 													</TableCell>
