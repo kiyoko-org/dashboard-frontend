@@ -22,8 +22,9 @@ import {
 	User,
 	Mail,
 	Calendar,
+	LogOut,
 } from "lucide-react"
-import { useProfiles } from "dispatch-lib"
+import { useProfiles, getDispatchClient } from "dispatch-lib"
 
 interface UserData {
 	id: string
@@ -43,6 +44,17 @@ export default function UsersPage() {
 	const [roleFilter, setRoleFilter] = useState("all")
 
 	const { profiles, loading, error } = useProfiles()
+
+	const handleSignOut = async (userId: string) => {
+		const client = getDispatchClient()
+		const { data, error } = await client.supabaseClient.rpc('signout_user', { user_uuid: userId })
+		if (error) {
+			console.error("Failed to sign out user:", error)
+			alert("Failed to sign out user: " + error.message)
+		} else {
+			alert("User signed out successfully")
+		}
+	}
 
 	const users: UserData[] = (profiles ?? []).map((p) => {
 		const fullName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ")
@@ -141,7 +153,7 @@ export default function UsersPage() {
 								{/* Role Filter */}
 								<Select
 									value={roleFilter}
-									onChange={(e) => setRoleFilter(e.target.value)}
+									onValueChange={setRoleFilter}
 								>
 								</Select>
 
@@ -172,6 +184,7 @@ export default function UsersPage() {
 									<TableHead>Reports</TableHead>
 									<TableHead>Joined</TableHead>
 									<TableHead>Last Active</TableHead>
+									<TableHead>Actions</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -215,6 +228,16 @@ export default function UsersPage() {
 										</TableCell>
 										<TableCell className="text-sm text-muted-foreground">
 											{user.lastActive}
+										</TableCell>
+										<TableCell>
+											<Button
+												variant="outline"
+												size="sm"
+												onClick={() => handleSignOut(user.id)}
+											>
+												<LogOut className="mr-2 h-4 w-4" />
+												Sign Out
+											</Button>
 										</TableCell>
 									</TableRow>
 								))}
