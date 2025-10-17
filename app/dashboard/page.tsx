@@ -19,6 +19,10 @@ export default function DashboardPage() {
 
   const totalIncidents = reports?.length ?? 0
 
+  // Calculate resolution rate
+  const resolvedCount = reports?.filter((r) => r.status === "resolved").length ?? 0
+  const resolutionRate = totalIncidents > 0 ? ((resolvedCount / totalIncidents) * 100).toFixed(1) : "0.0"
+
   // Calculate incidents change from last month
   const now = new Date()
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -205,7 +209,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* System Health */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium">
@@ -227,23 +231,9 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0%</div>
+              <div className="text-2xl font-bold">{resolutionRate}%</div>
               <p className="text-xs text-muted-foreground">
                 Incidents resolved
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">
-                System Uptime
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">100%</div>
-              <p className="text-xs text-muted-foreground">
-                Last 30 days
               </p>
             </CardContent>
           </Card>
