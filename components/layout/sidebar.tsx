@@ -26,6 +26,11 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
+    name: "Incidents",
+    href: "/dashboard/incidents",
+    icon: AlertTriangle,
+  },
+  {
     name: "Users",
     href: "/dashboard/users",
     icon: Users,
@@ -39,11 +44,6 @@ const navigation = [
     name: "Barangays",
     href: "/dashboard/barangays",
     icon: MapPin,
-  },
-  {
-    name: "Incidents",
-    href: "/dashboard/incidents",
-    icon: AlertTriangle,
   },
   {
     name: "Hotlines",
