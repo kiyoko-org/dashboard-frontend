@@ -72,6 +72,7 @@ export default function IncidentsPage() {
 	const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
 	const [selectedReportForDetail, setSelectedReportForDetail] = useState<Report | null>(null)
 	const [downloadingAttachments, setDownloadingAttachments] = useState<Set<number>>(new Set())
+	const [downloadProgress, setDownloadProgress] = useState<Map<number, number>>(new Map())
 
 	// Utility functions for file handling
 	const getFileType = (filename: string) => {
@@ -107,14 +108,77 @@ export default function IncidentsPage() {
 		}
 	}
 
-	const downloadFile = (url: string) => {
-		const link = document.createElement('a')
-		link.href = url
-		link.download = url.split('/').pop() || 'attachment'
-		link.style.display = 'none'
-		document.body.appendChild(link)
-		link.click()
-		document.body.removeChild(link)
+	const downloadFile = async (url: string, filename: string, index: number) => {
+		try {
+			const response = await fetch(url)
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`)
+			}
+			
+			const contentLength = response.headers.get('content-length')
+			const total = contentLength ? parseInt(contentLength, 10) : 0
+			let loaded = 0
+			
+			const reader = response.body?.getReader()
+			if (!reader) {
+				throw new Error('No reader available')
+			}
+			
+			const chunks: Uint8Array[] = []
+			
+			while (true) {
+				const { done, value } = await reader.read()
+				if (done) break
+				
+				chunks.push(value)
+				loaded += value.length
+				
+				// Update progress if we have total size
+				if (total > 0) {
+					const progress = (loaded / total) * 100
+					setDownloadProgress(prev => new Map(prev).set(index, progress))
+				}
+			}
+			
+			// Combine all chunks into a single blob
+			const blob = new Blob(chunks)
+			
+			// Create download link
+			const link = document.createElement('a')
+			link.href = URL.createObjectURL(blob)
+			link.download = filename
+			link.style.display = 'none'
+			document.body.appendChild(link)
+			link.click()
+			document.body.removeChild(link)
+			
+			// Clean up the object URL
+			URL.revokeObjectURL(link.href)
+			
+			// Clear progress
+			setDownloadProgress(prev => {
+				const newMap = new Map(prev)
+				newMap.delete(index)
+				return newMap
+			})
+		} catch (error) {
+			console.error('Error downloading file:', error)
+			// Fallback to direct link download
+			const link = document.createElement('a')
+			link.href = url
+			link.download = filename
+			link.target = '_blank'
+			document.body.appendChild(link)
+			link.click()
+			document.body.removeChild(link)
+			
+			// Clear progress on error
+			setDownloadProgress(prev => {
+				const newMap = new Map(prev)
+				newMap.delete(index)
+				return newMap
+			})
+		}
 	}
 
 	const handleAttachmentClick = async (attachment: string, index: number) => {
@@ -126,6 +190,7 @@ export default function IncidentsPage() {
 			// Extract the file path from the attachment URL
 			// Assuming attachments are stored in a bucket called 'attachments'
 			const filePath = attachment.replace(/^.*\/attachments\//, '')
+			const filename = filePath.split('/').pop() || `attachment-${index + 1}`
 			
 			// Create a signed URL for the file (valid for 1 hour)
 			const { data, error } = await client.supabaseClient.storage
@@ -135,16 +200,17 @@ export default function IncidentsPage() {
 			if (error) {
 				console.error('Error creating signed URL:', error)
 				// Fallback to original URL if there's an error
-				downloadFile(attachment)
+				await downloadFile(attachment, filename, index)
 				return
 			}
 			
 			// Download the file using the signed URL
-			downloadFile(data.signedUrl)
+			await downloadFile(data.signedUrl, filename, index)
 		} catch (error) {
 			console.error('Error handling attachment:', error)
 			// Fallback to original URL if there's an error
-			downloadFile(attachment)
+			const filename = attachment.split('/').pop() || `attachment-${index + 1}`
+			await downloadFile(attachment, filename, index)
 		} finally {
 			setDownloadingAttachments(prev => {
 				const newSet = new Set(prev)
@@ -1252,6 +1318,7 @@ export default function IncidentsPage() {
 												const IconComponent = getFileIcon(fileType)
 												const filename = attachment.split('/').pop() || `attachment-${index + 1}`
 												const isDownloading = downloadingAttachments.has(index)
+												const progress = downloadProgress.get(index) || 0
 												
 												return (
 													<div
@@ -1271,6 +1338,19 @@ export default function IncidentsPage() {
 															<div className="text-xs text-muted-foreground capitalize">
 																{fileType}
 															</div>
+															{isDownloading && progress > 0 && (
+																<div className="mt-1">
+																	<div className="w-full bg-muted rounded-full h-1">
+																		<div 
+																			className="bg-primary h-1 rounded-full transition-all duration-300"
+																			style={{ width: `${progress}%` }}
+																		/>
+																	</div>
+																	<div className="text-xs text-muted-foreground mt-1">
+																		{progress.toFixed(1)}%
+																	</div>
+																</div>
+															)}
 														</div>
 														{isDownloading ? (
 															<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent flex-shrink-0" />
