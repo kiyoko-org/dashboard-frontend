@@ -32,6 +32,12 @@ import {
 	UserPlus,
 	Check,
 	X,
+	Image,
+	File,
+	Music,
+	FileText,
+	Video,
+	FileImage,
 } from "lucide-react"
 import { useRealtimeReports, getDispatchClient, useCategories, useOfficers } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
@@ -65,6 +71,88 @@ export default function IncidentsPage() {
 	// Detail view dialog state
 	const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
 	const [selectedReportForDetail, setSelectedReportForDetail] = useState<Report | null>(null)
+	const [downloadingAttachments, setDownloadingAttachments] = useState<Set<number>>(new Set())
+
+	// Utility functions for file handling
+	const getFileType = (filename: string) => {
+		const extension = filename.split('.').pop()?.toLowerCase()
+		
+		if (!extension) return 'unknown'
+		
+		const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']
+		const audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'wma']
+		const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv']
+		const documentExtensions = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt']
+		
+		if (imageExtensions.includes(extension)) return 'image'
+		if (audioExtensions.includes(extension)) return 'audio'
+		if (videoExtensions.includes(extension)) return 'video'
+		if (documentExtensions.includes(extension)) return 'document'
+		
+		return 'file'
+	}
+
+	const getFileIcon = (fileType: string) => {
+		switch (fileType) {
+			case 'image':
+				return Image
+			case 'audio':
+				return Music
+			case 'video':
+				return Video
+			case 'document':
+				return FileText
+			default:
+				return File
+		}
+	}
+
+	const downloadFile = (url: string) => {
+		const link = document.createElement('a')
+		link.href = url
+		link.download = url.split('/').pop() || 'attachment'
+		link.style.display = 'none'
+		document.body.appendChild(link)
+		link.click()
+		document.body.removeChild(link)
+	}
+
+	const handleAttachmentClick = async (attachment: string, index: number) => {
+		setDownloadingAttachments(prev => new Set(prev).add(index))
+		
+		try {
+			const client = getDispatchClient()
+			
+			// Extract the file path from the attachment URL
+			// Assuming attachments are stored in a bucket called 'attachments'
+			const filePath = attachment.replace(/^.*\/attachments\//, '')
+			
+			// Create a signed URL for the file (valid for 1 hour)
+			const { data, error } = await client.supabaseClient.storage
+				.from('attachments')
+				.createSignedUrl(filePath, 3600) // 3600 seconds = 1 hour
+			
+			if (error) {
+				console.error('Error creating signed URL:', error)
+				// Fallback to original URL if there's an error
+				downloadFile(attachment)
+				return
+			}
+			
+			// Download the file using the signed URL
+			downloadFile(data.signedUrl)
+		} catch (error) {
+			console.error('Error handling attachment:', error)
+			// Fallback to original URL if there's an error
+			downloadFile(attachment)
+		} finally {
+			setDownloadingAttachments(prev => {
+				const newSet = new Set(prev)
+				newSet.delete(index)
+				return newSet
+			})
+		}
+	}
 
 	const getStatusBadge = (status?: string | null) => {
 		const getStatusClasses = (status?: string | null) => {
@@ -1154,15 +1242,47 @@ export default function IncidentsPage() {
 									</div>
 								)}
 
-								{/* Report Preferences */}
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									{selectedReportForDetail.attachments && selectedReportForDetail.attachments.length > 0 && (
-										<div>
-											<div className="text-sm text-muted-foreground mb-1">Attachments</div>
-											<div className="font-medium">{selectedReportForDetail.attachments.length} file(s)</div>
+								{/* Attachments */}
+								{selectedReportForDetail.attachments && selectedReportForDetail.attachments.length > 0 && (
+									<div>
+										<div className="text-lg font-semibold mb-3">Attachments</div>
+										<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+											{selectedReportForDetail.attachments.map((attachment, index) => {
+												const fileType = getFileType(attachment)
+												const IconComponent = getFileIcon(fileType)
+												const filename = attachment.split('/').pop() || `attachment-${index + 1}`
+												const isDownloading = downloadingAttachments.has(index)
+												
+												return (
+													<div
+														key={index}
+														className={`flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors ${
+															isDownloading ? 'opacity-50 cursor-not-allowed' : ''
+														}`}
+														onClick={() => !isDownloading && handleAttachmentClick(attachment, index)}
+													>
+														<div className="flex-shrink-0">
+															<IconComponent className="h-8 w-8 text-muted-foreground" />
+														</div>
+														<div className="flex-1 min-w-0">
+															<div className="text-sm font-medium truncate" title={filename}>
+																{filename}
+															</div>
+															<div className="text-xs text-muted-foreground capitalize">
+																{fileType}
+															</div>
+														</div>
+														{isDownloading ? (
+															<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent flex-shrink-0" />
+														) : (
+															<Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+														)}
+													</div>
+												)
+											})}
 										</div>
-									)}
-								</div>
+									</div>
+								)}
 
 								{/* Description */}
 								{selectedReportForDetail.description && (
