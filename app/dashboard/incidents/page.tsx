@@ -80,6 +80,7 @@ export default function IncidentsPage() {
 	const [viewerIndex, setViewerIndex] = useState<number | null>(null)
 	const [viewerSignedUrlLoading, setViewerSignedUrlLoading] = useState(false)
 	const [thumbnailSignedUrls, setThumbnailSignedUrls] = useState<Record<number, string>>({})
+	const [thumbnailLoading, setThumbnailLoading] = useState<Record<number, boolean>>({})
 
 	const createSignedUrlForAttachment = async (attachment: string) => {
 		try {
@@ -120,11 +121,14 @@ export default function IncidentsPage() {
 				const fileType = getFileType(attachment)
 				if (fileType === 'image') {
 					try {
+						setThumbnailLoading(prev => ({ ...prev, [i]: true }))
 						const { url } = await createSignedUrlForAttachment(attachment)
 						if (cancelled) return
 						newMap[i] = url
 					} catch (e) {
 						// ignore
+					} finally {
+						setThumbnailLoading(prev => ({ ...prev, [i]: false }))
 					}
 				}
 			}
@@ -1397,7 +1401,13 @@ export default function IncidentsPage() {
 									>
 										<div className="flex-shrink-0">
 											{fileType === 'image' ? (
-												<img src={thumbnailSignedUrls[index] || attachment} alt={filename} className="h-16 w-24 object-cover rounded-md" />
+												thumbnailLoading[index] ? (
+													<div className="h-16 w-24 flex items-center justify-center bg-muted rounded-md">
+														<div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+													</div>
+												) : (
+													<img src={thumbnailSignedUrls[index] || attachment} alt={filename} className="h-16 w-24 object-cover rounded-md" />
+												)
 											) : fileType === 'audio' ? (
 												<div className="h-12 w-12 flex items-center justify-center bg-muted rounded-md">
 													<Music className="h-6 w-6 text-muted-foreground" />
