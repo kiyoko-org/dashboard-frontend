@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -79,6 +79,7 @@ export default function IncidentsPage() {
 	const [viewerFilename, setViewerFilename] = useState<string | null>(null)
 	const [viewerIndex, setViewerIndex] = useState<number | null>(null)
 	const [viewerSignedUrlLoading, setViewerSignedUrlLoading] = useState(false)
+	const [thumbnailSignedUrls, setThumbnailSignedUrls] = useState<Record<number, string>>({})
 
 	const createSignedUrlForAttachment = async (attachment: string) => {
 		try {
@@ -107,6 +108,30 @@ export default function IncidentsPage() {
 		setViewerSignedUrlLoading(false)
 		setViewerOpen(true)
 	}
+
+	// Prefetch signed thumbnail URLs for images when the detail dialog opens
+	useEffect(() => {
+		if (!isDetailDialogOpen || !selectedReportForDetail?.attachments) return
+		let cancelled = false
+		;(async () => {
+			const newMap: Record<number, string> = {}
+			for (let i = 0; i < selectedReportForDetail.attachments.length; i++) {
+				const attachment = selectedReportForDetail.attachments[i]
+				const fileType = getFileType(attachment)
+				if (fileType === 'image') {
+					try {
+						const { url } = await createSignedUrlForAttachment(attachment)
+						if (cancelled) return
+						newMap[i] = url
+					} catch (e) {
+						// ignore
+					}
+				}
+			}
+			if (!cancelled) setThumbnailSignedUrls(newMap)
+		})()
+		return () => { cancelled = true }
+	}, [isDetailDialogOpen, selectedReportForDetail])
 
 
 	// Utility functions for file handling
@@ -1372,7 +1397,7 @@ export default function IncidentsPage() {
 									>
 										<div className="flex-shrink-0">
 											{fileType === 'image' ? (
-												<img src={attachment} alt={filename} className="h-16 w-24 object-cover rounded-md" />
+												<img src={thumbnailSignedUrls[index] || attachment} alt={filename} className="h-16 w-24 object-cover rounded-md" />
 											) : fileType === 'audio' ? (
 												<div className="h-12 w-12 flex items-center justify-center bg-muted rounded-md">
 													<Music className="h-6 w-6 text-muted-foreground" />
