@@ -1392,7 +1392,7 @@ export default function IncidentsPage() {
 										}`}
 										onClick={() => {
 											if (isDownloading) return
-											if (fileType === 'image' || fileType === 'audio' || fileType === 'video') {
+											if (fileType === 'image' || fileType === 'video') {
 												openAttachmentViewer(attachment, index, fileType)
 											} else {
 												handleAttachmentClick(attachment, index)
@@ -1440,9 +1440,9 @@ export default function IncidentsPage() {
 										</div>
 										{isDownloading ? (
 											<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent flex-shrink-0" />
-										) : (
+										) : fileType !== 'image' ? (
 											<Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-										)}
+										) : null}
 									</div>
 								)
 							})}
