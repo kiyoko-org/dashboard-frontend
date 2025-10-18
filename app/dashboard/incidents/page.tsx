@@ -54,8 +54,8 @@ export default function IncidentsPage() {
 	const [statusFilter, setStatusFilter] = useState("all")
 	const [categoryFilter, setCategoryFilter] = useState("all")
 	const [subcategoryFilter, setSubcategoryFilter] = useState("all")
-	const [sortField, setSortField] = useState<keyof Report | null>(null)
-	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+	const [sortField, setSortField] = useState<keyof Report | null>("id")
+	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
 	// Assignment dialog state
 	const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
