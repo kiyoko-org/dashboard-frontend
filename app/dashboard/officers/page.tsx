@@ -1,7 +1,7 @@
 "use client"
 
 import { getDispatchClient, useOfficers } from "dispatch-lib"
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2, LogOut } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
 	Dialog,
@@ -74,6 +74,7 @@ export default function OfficersPage() {
 	const [editingOfficer, setEditingOfficer] = useState<any>(null)
 	const [deleteOpen, setDeleteOpen] = useState(false)
 	const [deletingOfficer, setDeletingOfficer] = useState<any>(null)
+	const [signingOutOfficerId, setSigningOutOfficerId] = useState<string | null>(null)
 
 	const { officers, loading, updateOfficer, deleteOfficer } = useOfficers()
 
@@ -194,6 +195,22 @@ export default function OfficersPage() {
 			})
 		}
 	}, [editingOfficer, editForm])
+
+	const handleSignOut = async (userId: string) => {
+		setSigningOutOfficerId(userId)
+		try {
+			const client = getDispatchClient()
+			const { data, error } = await client.supabaseClient.rpc('signout_user', { user_uuid: userId })
+			if (error) {
+				console.error("Failed to sign out officer:", error)
+				alert("Failed to sign out officer: " + error.message)
+			} else {
+				alert("Officer signed out successfully")
+			}
+		} finally {
+			setSigningOutOfficerId(null)
+		}
+	}
 
 	const handleDeleteOfficer = async () => {
 		if (!deletingOfficer) return
@@ -701,6 +718,15 @@ export default function OfficersPage() {
 														}}
 													>
 														<Pencil className="h-4 w-4" />
+													</Button>
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => handleSignOut(officer.id)}
+														disabled={signingOutOfficerId === officer.id}
+													>
+														<LogOut className="h-4 w-4" />
+														{signingOutOfficerId === officer.id && " ..."}
 													</Button>
 													<Button
 														variant="destructive"
