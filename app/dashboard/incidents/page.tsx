@@ -483,6 +483,15 @@ export default function IncidentsPage() {
 							.update({ assigned_report_id: null })
 							.eq('id', officer.id)
 						
+						// Send notification to officer about unassignment
+						if (!unassignError) {
+							await client.notifyUser(
+								officer.id,
+								"Assignment Removed",
+								`Your assignment to incident #${selectedReport.id} has been removed`
+							)
+						}
+						
 						if (unassignError) {
 							throw new Error(`Failed to unassign officer ${officer.id}: ${unassignError.message}`)
 						}
@@ -1157,6 +1166,14 @@ export default function IncidentsPage() {
 										for (const officerId of selectedOfficers) {
 											const { data, error } = await client.supabaseClient.from('officers').update({ assigned_report_id: selectedReportForAssignment.id }).eq('id', officerId).select();
 
+											// Send notification to officer
+											if (!error) {
+												await client.notifyUser(
+													officerId,
+													"New Assignment",
+													`You have been assigned to incident #${selectedReportForAssignment.id}`
+												)
+											}
 
 											console.log(officerId, selectedReportForAssignment.id)
 
