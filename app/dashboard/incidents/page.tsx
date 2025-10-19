@@ -75,7 +75,7 @@ export default function IncidentsPage() {
 	const [downloadProgress, setDownloadProgress] = useState<Map<number, number>>(new Map())
 	const [viewerOpen, setViewerOpen] = useState(false)
 	const [viewerSrc, setViewerSrc] = useState<string | null>(null)
-	const [viewerType, setViewerType] = useState<'image'|'audio'|'video'|'file'|null>(null)
+	const [viewerType, setViewerType] = useState<'image' | 'audio' | 'video' | 'file' | null>(null)
 	const [viewerFilename, setViewerFilename] = useState<string | null>(null)
 	const [viewerIndex, setViewerIndex] = useState<number | null>(null)
 	const [viewerSignedUrlLoading, setViewerSignedUrlLoading] = useState(false)
@@ -114,26 +114,26 @@ export default function IncidentsPage() {
 	useEffect(() => {
 		if (!isDetailDialogOpen || !selectedReportForDetail?.attachments) return
 		let cancelled = false
-		;(async () => {
-			const newMap: Record<number, string> = {}
-			for (let i = 0; i < selectedReportForDetail.attachments.length; i++) {
-				const attachment = selectedReportForDetail.attachments[i]
-				const fileType = getFileType(attachment)
-				if (fileType === 'image') {
-					try {
-						setThumbnailLoading(prev => ({ ...prev, [i]: true }))
-						const { url } = await createSignedUrlForAttachment(attachment)
-						if (cancelled) return
-						newMap[i] = url
-					} catch (e) {
-						// ignore
-					} finally {
-						setThumbnailLoading(prev => ({ ...prev, [i]: false }))
+			; (async () => {
+				const newMap: Record<number, string> = {}
+				for (let i = 0; i < selectedReportForDetail.attachments.length; i++) {
+					const attachment = selectedReportForDetail.attachments[i]
+					const fileType = getFileType(attachment)
+					if (fileType === 'image') {
+						try {
+							setThumbnailLoading(prev => ({ ...prev, [i]: true }))
+							const { url } = await createSignedUrlForAttachment(attachment)
+							if (cancelled) return
+							newMap[i] = url
+						} catch (e) {
+							// ignore
+						} finally {
+							setThumbnailLoading(prev => ({ ...prev, [i]: false }))
+						}
 					}
 				}
-			}
-			if (!cancelled) setThumbnailSignedUrls(newMap)
-		})()
+				if (!cancelled) setThumbnailSignedUrls(newMap)
+			})()
 		return () => { cancelled = true }
 	}, [isDetailDialogOpen, selectedReportForDetail])
 
@@ -141,19 +141,19 @@ export default function IncidentsPage() {
 	// Utility functions for file handling
 	const getFileType = (filename: string) => {
 		const extension = filename.split('.').pop()?.toLowerCase()
-		
+
 		if (!extension) return 'unknown'
-		
+
 		const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']
 		const audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'wma']
 		const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv']
 		const documentExtensions = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt']
-		
+
 		if (imageExtensions.includes(extension)) return 'image'
 		if (audioExtensions.includes(extension)) return 'audio'
 		if (videoExtensions.includes(extension)) return 'video'
 		if (documentExtensions.includes(extension)) return 'document'
-		
+
 		return 'file'
 	}
 
@@ -178,35 +178,35 @@ export default function IncidentsPage() {
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`)
 			}
-			
+
 			const contentLength = response.headers.get('content-length')
 			const total = contentLength ? parseInt(contentLength, 10) : 0
 			let loaded = 0
-			
+
 			const reader = response.body?.getReader()
 			if (!reader) {
 				throw new Error('No reader available')
 			}
-			
+
 			const chunks: Uint8Array[] = []
-			
+
 			while (true) {
 				const { done, value } = await reader.read()
 				if (done) break
-				
+
 				chunks.push(value)
 				loaded += value.length
-				
+
 				// Update progress if we have total size
 				if (total > 0) {
 					const progress = (loaded / total) * 100
 					setDownloadProgress(prev => new Map(prev).set(index, progress))
 				}
 			}
-			
+
 			// Combine all chunks into a single blob
 			const blob = new Blob(chunks)
-			
+
 			// Create download link
 			const link = document.createElement('a')
 			link.href = URL.createObjectURL(blob)
@@ -215,10 +215,10 @@ export default function IncidentsPage() {
 			document.body.appendChild(link)
 			link.click()
 			document.body.removeChild(link)
-			
+
 			// Clean up the object URL
 			URL.revokeObjectURL(link.href)
-			
+
 			// Clear progress
 			setDownloadProgress(prev => {
 				const newMap = new Map(prev)
@@ -235,7 +235,7 @@ export default function IncidentsPage() {
 			document.body.appendChild(link)
 			link.click()
 			document.body.removeChild(link)
-			
+
 			// Clear progress on error
 			setDownloadProgress(prev => {
 				const newMap = new Map(prev)
@@ -247,27 +247,27 @@ export default function IncidentsPage() {
 
 	const handleAttachmentClick = async (attachment: string, index: number) => {
 		setDownloadingAttachments(prev => new Set(prev).add(index))
-		
+
 		try {
 			const client = getDispatchClient()
-			
+
 			// Extract the file path from the attachment URL
 			// Assuming attachments are stored in a bucket called 'attachments'
 			const filePath = attachment.replace(/^.*\/attachments\//, '')
 			const filename = filePath.split('/').pop() || `attachment-${index + 1}`
-			
+
 			// Create a signed URL for the file (valid for 1 hour)
 			const { data, error } = await client.supabaseClient.storage
 				.from('attachments')
 				.createSignedUrl(filePath, 3600) // 3600 seconds = 1 hour
-			
+
 			if (error) {
 				console.error('Error creating signed URL:', error)
 				// Fallback to original URL if there's an error
 				await downloadFile(attachment, filename, index)
 				return
 			}
-			
+
 			// Download the file using the signed URL
 			await downloadFile(data.signedUrl, filename, index)
 		} catch (error) {
@@ -287,7 +287,7 @@ export default function IncidentsPage() {
 	const getStatusBadge = (status?: string | null) => {
 		const getStatusClasses = (status?: string | null) => {
 			const base = "capitalize text-center"
-			switch(status) {
+			switch (status) {
 				case "pending": return `${base} bg-yellow-500 text-white`
 				case "assigned": return `${base} bg-blue-500 text-white`
 				case "in-progress": return `${base} bg-orange-500 text-white`
@@ -471,7 +471,7 @@ export default function IncidentsPage() {
 					.from('officers')
 					.select('id')
 					.eq('assigned_report_id', selectedReport.id)
-				
+
 				if (fetchError) {
 					throw new Error(`Failed to fetch assigned officers: ${fetchError.message}`)
 				}
@@ -482,7 +482,7 @@ export default function IncidentsPage() {
 							.from('officers')
 							.update({ assigned_report_id: null })
 							.eq('id', officer.id)
-						
+
 						// Send notification to officer about unassignment
 						if (!unassignError) {
 							await client.notifyUser(
@@ -491,7 +491,7 @@ export default function IncidentsPage() {
 								`Your assignment to incident #${selectedReport.id} has been removed`
 							)
 						}
-						
+
 						if (unassignError) {
 							throw new Error(`Failed to unassign officer ${officer.id}: ${unassignError.message}`)
 						}
@@ -787,17 +787,17 @@ export default function IncidentsPage() {
 													<TableCell>
 														<div className="flex justify-end gap-2">
 															<Button
-															variant="ghost"
-															 size="icon"
-											disabled={isArchived}
-											title={isArchived ? "Disabled for archived reports" : "View details"}
-											onClick={() => {
-												setSelectedReportForDetail(report)
-												setIsDetailDialogOpen(true)
-											}}
-										>
-											<Eye className="h-4 w-4" />
-										</Button>
+																variant="ghost"
+																size="icon"
+																disabled={isArchived}
+																title={isArchived ? "Disabled for archived reports" : "View details"}
+																onClick={() => {
+																	setSelectedReportForDetail(report)
+																	setIsDetailDialogOpen(true)
+																}}
+															>
+																<Eye className="h-4 w-4" />
+															</Button>
 															<Button
 																variant="ghost"
 																size="icon"
@@ -808,8 +808,8 @@ export default function IncidentsPage() {
 																	setIsAssignDialogOpen(true)
 																}}
 																title={
-																	report.status === 'resolved' 
-																		? "Cannot assign to resolved report" 
+																	report.status === 'resolved'
+																		? "Cannot assign to resolved report"
 																		: report.status === 'cancelled'
 																			? "Cannot assign to cancelled report"
 																			: "Assign officers"
@@ -826,13 +826,13 @@ export default function IncidentsPage() {
 																<Edit className="h-4 w-4" />
 															</Button>
 															<Button
-															variant="ghost"
-															size="icon"
-															title="Archive"
-															onClick={() => setConfirmArchiveReport(report)}
-															disabled={isArchived || report.status !== 'resolved'}
+																variant="ghost"
+																size="icon"
+																title="Archive"
+																onClick={() => setConfirmArchiveReport(report)}
+																disabled={isArchived || report.status !== 'resolved'}
 															>
-															<Archive className={`h-4 w-4 ${isArchived || report.status !== 'resolved' ? 'text-gray-400' : 'text-orange-500'}`} />
+																<Archive className={`h-4 w-4 ${isArchived || report.status !== 'resolved' ? 'text-gray-400' : 'text-orange-500'}`} />
 															</Button>
 														</div>
 													</TableCell>
@@ -847,15 +847,15 @@ export default function IncidentsPage() {
 				)}
 			</div>
 
-		<Dialog open={isEditOpen} onOpenChange={(open) => {
-			if (!saving && !open) {
-				setIsEditOpen(false)
-				setSelectedReport(null)
-				setShowCancelConfirm(false)
-			} else {
-				setIsEditOpen(open)
-			}
-		}}>
+			<Dialog open={isEditOpen} onOpenChange={(open) => {
+				if (!saving && !open) {
+					setIsEditOpen(false)
+					setSelectedReport(null)
+					setShowCancelConfirm(false)
+				} else {
+					setIsEditOpen(open)
+				}
+			}}>
 				<DialogPortal>
 					<DialogOverlay />
 					<DialogContent>
@@ -880,12 +880,12 @@ export default function IncidentsPage() {
 							</div>
 							<div>
 								<div className="text-sm text-muted-foreground mb-2">Status</div>
-								<Select 
-									value={editedStatus} 
+								<Select
+									value={editedStatus}
 									onValueChange={(value) => {
 										setEditedStatus(value as ReportStatus)
 										setShowCancelConfirm(false)
-									}} 
+									}}
 									disabled={saving}
 								>
 									<SelectTrigger>
@@ -914,23 +914,23 @@ export default function IncidentsPage() {
 							)}
 						</div>
 						<DialogFooter>
-							<Button 
-								variant="outline" 
-								onClick={() => { 
-									if (!saving) { 
+							<Button
+								variant="outline"
+								onClick={() => {
+									if (!saving) {
 										setIsEditOpen(false)
 										setSelectedReport(null)
 										setShowCancelConfirm(false)
-									} 
-								}} 
+									}
+								}}
 								disabled={saving}
 							>
 								Cancel
 							</Button>
 							{showCancelConfirm && editedStatus === 'cancelled' ? (
-								<Button 
-									variant="destructive" 
-									onClick={handleSaveStatus} 
+								<Button
+									variant="destructive"
+									onClick={handleSaveStatus}
 									disabled={saving}
 								>
 									{saving ? "Cancelling Report..." : "Yes, Cancel Report"}
@@ -1011,13 +1011,12 @@ export default function IncidentsPage() {
 										return (
 											<div
 												key={officer.id}
-												className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-													isAssigned
-														? 'bg-blue-50 border-blue-200'
-														: isCurrentlyAssigned && !isAssignedToThis
-															? 'bg-gray-50 border-gray-200 cursor-not-allowed opacity-60'
-															: 'hover:bg-gray-50 border-gray-200 cursor-pointer'
-												}`}
+												className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isAssigned
+													? 'bg-blue-50 border-blue-200'
+													: isCurrentlyAssigned && !isAssignedToThis
+														? 'bg-gray-50 border-gray-200 cursor-not-allowed opacity-60'
+														: 'hover:bg-gray-50 border-gray-200 cursor-pointer'
+													}`}
 												onClick={() => {
 													if (!isCurrentlyAssigned || isAssignedToThis) {
 														if (!isAssignedToThis) {
@@ -1186,9 +1185,13 @@ export default function IncidentsPage() {
 										}
 
 										if (!hasError) {
-											// Update report status to assigned if it was pending
-											if (selectedReportForAssignment.status === 'pending') {
-												await client.updateReport(selectedReportForAssignment.id, { status: 'assigned' })
+											// Update report status to assigned
+											if (selectedReportForAssignment.status !== 'assigned') {
+												const { data, error } = await client.updateReport(selectedReportForAssignment.id, { status: 'assigned' })
+
+												console.log("Report status updated to assigned:", selectedReportForAssignment.id, selectedReportForAssignment.incident_title)
+
+												console.log("Update report status result:", { data, error })
 											}
 
 											setIsAssignDialogOpen(false)
@@ -1389,83 +1392,82 @@ export default function IncidentsPage() {
 									</div>
 								)}
 
-				{/* Attachments */}
-				{selectedReportForDetail.attachments && selectedReportForDetail.attachments.length > 0 && (
-					<div>
-						<div className="text-lg font-semibold mb-3">Attachments</div>
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-							{selectedReportForDetail.attachments.map((attachment, index) => {
-								const fileType = getFileType(attachment)
-								const IconComponent = getFileIcon(fileType)
-								const filename = attachment.split('/').pop() || `attachment-${index + 1}`
-								const isDownloading = downloadingAttachments.has(index)
-								const progress = downloadProgress.get(index) || 0
-								
-								return (
-									<div
-										key={index}
-										className={`flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors ${
-											isDownloading ? 'opacity-50 cursor-not-allowed' : ''
-										}`}
-										onClick={() => {
-											if (isDownloading) return
-											if (fileType === 'image' || fileType === 'video') {
-												openAttachmentViewer(attachment, index, fileType)
-											} else {
-												handleAttachmentClick(attachment, index)
-											}
-										}}
-									>
-										<div className="flex-shrink-0">
-											{fileType === 'image' ? (
-												thumbnailLoading[index] ? (
-													<div className="h-16 w-24 flex items-center justify-center bg-muted rounded-md">
-														<div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+								{/* Attachments */}
+								{selectedReportForDetail.attachments && selectedReportForDetail.attachments.length > 0 && (
+									<div>
+										<div className="text-lg font-semibold mb-3">Attachments</div>
+										<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+											{selectedReportForDetail.attachments.map((attachment, index) => {
+												const fileType = getFileType(attachment)
+												const IconComponent = getFileIcon(fileType)
+												const filename = attachment.split('/').pop() || `attachment-${index + 1}`
+												const isDownloading = downloadingAttachments.has(index)
+												const progress = downloadProgress.get(index) || 0
+
+												return (
+													<div
+														key={index}
+														className={`flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors ${isDownloading ? 'opacity-50 cursor-not-allowed' : ''
+															}`}
+														onClick={() => {
+															if (isDownloading) return
+															if (fileType === 'image' || fileType === 'video') {
+																openAttachmentViewer(attachment, index, fileType)
+															} else {
+																handleAttachmentClick(attachment, index)
+															}
+														}}
+													>
+														<div className="flex-shrink-0">
+															{fileType === 'image' ? (
+																thumbnailLoading[index] ? (
+																	<div className="h-16 w-24 flex items-center justify-center bg-muted rounded-md">
+																		<div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+																	</div>
+																) : (
+																	<img src={thumbnailSignedUrls[index] || attachment} alt={filename} className="h-16 w-24 object-cover rounded-md" />
+																)
+															) : fileType === 'audio' ? (
+																<div className="h-12 w-12 flex items-center justify-center bg-muted rounded-md">
+																	<Music className="h-6 w-6 text-muted-foreground" />
+																</div>
+															) : fileType === 'video' ? (
+																<div className="h-12 w-12 flex items-center justify-center bg-muted rounded-md">
+																	<Video className="h-6 w-6 text-muted-foreground" />
+																</div>
+															) : (
+																<IconComponent className="h-8 w-8 text-muted-foreground" />
+															)}
+														</div>
+														<div className="flex-1 min-w-0">
+															<div className="text-sm font-medium truncate" title={filename}>
+																{filename}
+															</div>
+															<div className="text-xs text-muted-foreground capitalize">
+																{fileType}
+															</div>
+															{isDownloading && progress > 0 && (
+																<div className="mt-1">
+																	<div className="w-full bg-muted rounded-full h-1">
+																		<div className="bg-primary h-1 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+																	</div>
+																	<div className="text-xs text-muted-foreground mt-1">
+																		{progress.toFixed(1)}%
+																	</div>
+																</div>
+															)}
+														</div>
+														{isDownloading ? (
+															<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent flex-shrink-0" />
+														) : fileType !== 'image' ? (
+															<Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+														) : null}
 													</div>
-												) : (
-													<img src={thumbnailSignedUrls[index] || attachment} alt={filename} className="h-16 w-24 object-cover rounded-md" />
 												)
-											) : fileType === 'audio' ? (
-												<div className="h-12 w-12 flex items-center justify-center bg-muted rounded-md">
-													<Music className="h-6 w-6 text-muted-foreground" />
-												</div>
-											) : fileType === 'video' ? (
-												<div className="h-12 w-12 flex items-center justify-center bg-muted rounded-md">
-													<Video className="h-6 w-6 text-muted-foreground" />
-												</div>
-											) : (
-												<IconComponent className="h-8 w-8 text-muted-foreground" />
-											)}
+											})}
 										</div>
-										<div className="flex-1 min-w-0">
-											<div className="text-sm font-medium truncate" title={filename}>
-												{filename}
-											</div>
-											<div className="text-xs text-muted-foreground capitalize">
-												{fileType}
-											</div>
-											{isDownloading && progress > 0 && (
-												<div className="mt-1">
-													<div className="w-full bg-muted rounded-full h-1">
-														<div className="bg-primary h-1 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
-													</div>
-													<div className="text-xs text-muted-foreground mt-1">
-														{progress.toFixed(1)}%
-													</div>
-												</div>
-											)}
-										</div>
-										{isDownloading ? (
-											<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent flex-shrink-0" />
-										) : fileType !== 'image' ? (
-											<Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-										) : null}
 									</div>
-								)
-							})}
-						</div>
-					</div>
-				)}
+								)}
 
 								{/* Description */}
 								{selectedReportForDetail.description && (
@@ -1533,77 +1535,77 @@ export default function IncidentsPage() {
 						</DialogFooter>
 					</DialogContent>
 				</DialogPortal>
-				</Dialog>
+			</Dialog>
 
-				{/* Attachment Viewer Dialog */}
-				<Dialog open={viewerOpen} onOpenChange={(open) => {
-					if (!open) {
-						setViewerOpen(false)
-						setViewerSrc(null)
-						setViewerType(null)
-						setViewerFilename(null)
-						setViewerIndex(null)
-					} else {
-						setViewerOpen(open)
-					}
-				}}>
-					<DialogPortal>
-						<DialogOverlay />
-						<DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-							<DialogHeader>
-								<DialogTitle>{viewerFilename || 'Attachment'}</DialogTitle>
-							</DialogHeader>
-							<div className="py-4">
-								{viewerSignedUrlLoading ? (
-									<div className="flex items-center justify-center py-8">
-										<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+			{/* Attachment Viewer Dialog */}
+			<Dialog open={viewerOpen} onOpenChange={(open) => {
+				if (!open) {
+					setViewerOpen(false)
+					setViewerSrc(null)
+					setViewerType(null)
+					setViewerFilename(null)
+					setViewerIndex(null)
+				} else {
+					setViewerOpen(open)
+				}
+			}}>
+				<DialogPortal>
+					<DialogOverlay />
+					<DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+						<DialogHeader>
+							<DialogTitle>{viewerFilename || 'Attachment'}</DialogTitle>
+						</DialogHeader>
+						<div className="py-4">
+							{viewerSignedUrlLoading ? (
+								<div className="flex items-center justify-center py-8">
+									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+								</div>
+							) : (
+								viewerSrc ? (
+									<div className="flex flex-col items-center justify-center">
+										{viewerType === 'image' && (
+											<img src={viewerSrc} alt={viewerFilename || 'image'} className="max-h-[70vh] w-auto object-contain rounded-md" />
+										)}
+										{viewerType === 'audio' && (
+											<audio controls autoPlay src={viewerSrc} className="w-full" />
+										)}
+										{viewerType === 'video' && (
+											<video controls autoPlay src={viewerSrc} className="max-h-[70vh] w-full rounded-md" />
+										)}
+										{(viewerType !== 'image' && viewerType !== 'audio' && viewerType !== 'video') && (
+											<div className="w-full text-center">
+												<p className="text-sm text-muted-foreground">Preview not available for this file type.</p>
+												<a href={viewerSrc} target="_blank" rel="noreferrer" className="underline text-primary">Open in new tab</a>
+											</div>
+										)}
 									</div>
 								) : (
-									viewerSrc ? (
-										<div className="flex flex-col items-center justify-center">
-											{viewerType === 'image' && (
-												<img src={viewerSrc} alt={viewerFilename || 'image'} className="max-h-[70vh] w-auto object-contain rounded-md" />
-											)}
-											{viewerType === 'audio' && (
-												<audio controls autoPlay src={viewerSrc} className="w-full" />
-											)}
-											{viewerType === 'video' && (
-												<video controls autoPlay src={viewerSrc} className="max-h-[70vh] w-full rounded-md" />
-											)}
-											{(viewerType !== 'image' && viewerType !== 'audio' && viewerType !== 'video') && (
-												<div className="w-full text-center">
-													<p className="text-sm text-muted-foreground">Preview not available for this file type.</p>
-													<a href={viewerSrc} target="_blank" rel="noreferrer" className="underline text-primary">Open in new tab</a>
-												</div>
-											)}
-										</div>
-									) : (
-										<div className="text-center text-muted-foreground py-6">No preview available</div>
-									)
-								)}
-							</div>
-							<DialogFooter>
-								<Button variant="outline" onClick={() => {
-									setViewerOpen(false)
-									setViewerSrc(null)
-									setViewerType(null)
-									setViewerFilename(null)
-									setViewerIndex(null)
-								}}>Close</Button>
-								{viewerSrc && (
-									<Button onClick={() => downloadFile(viewerSrc, viewerFilename || `attachment-${viewerIndex ?? 0}`, viewerIndex ?? 0)}>
-										<Download className="mr-2 h-4 w-4" />
-										Download
-									</Button>
-								)}
-							</DialogFooter>
-						</DialogContent>
-						</DialogPortal>
-					</Dialog>
+									<div className="text-center text-muted-foreground py-6">No preview available</div>
+								)
+							)}
+						</div>
+						<DialogFooter>
+							<Button variant="outline" onClick={() => {
+								setViewerOpen(false)
+								setViewerSrc(null)
+								setViewerType(null)
+								setViewerFilename(null)
+								setViewerIndex(null)
+							}}>Close</Button>
+							{viewerSrc && (
+								<Button onClick={() => downloadFile(viewerSrc, viewerFilename || `attachment-${viewerIndex ?? 0}`, viewerIndex ?? 0)}>
+									<Download className="mr-2 h-4 w-4" />
+									Download
+								</Button>
+							)}
+						</DialogFooter>
+					</DialogContent>
+				</DialogPortal>
+			</Dialog>
 
-				{/* Archive Confirmation Dialog */}
-				<Dialog open={!!confirmArchiveReport} onOpenChange={(open) => !open && setConfirmArchiveReport(null)}>
-					<DialogContent>
+			{/* Archive Confirmation Dialog */}
+			<Dialog open={!!confirmArchiveReport} onOpenChange={(open) => !open && setConfirmArchiveReport(null)}>
+				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Archive Incident</DialogTitle>
 					</DialogHeader>
