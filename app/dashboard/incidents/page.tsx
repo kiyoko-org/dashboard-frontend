@@ -499,7 +499,7 @@ export default function IncidentsPage() {
 				}
 			}
 
-			const updateData = { status: editedStatus }
+			const updateData: any = { status: editedStatus }
 			if (editedStatus === 'cancelled') {
 				updateData.is_archived = true
 			}
@@ -508,6 +508,17 @@ export default function IncidentsPage() {
 			if (result.error) {
 				throw new Error(result.error.message || 'Failed to update status')
 			}
+
+			// Notify reporter of status change
+			if (selectedReport.reporter_id) {
+				const statusText = String(editedStatus ?? 'pending').replace('-', ' ')
+				await client.notifyUser(
+					selectedReport.reporter_id,
+					"Report Status Updated",
+					`Your report #${selectedReport.id} status has been updated to ${statusText}`
+				)
+			}
+
 			setIsEditOpen(false)
 			setSelectedReport(null)
 		} catch (err) {
