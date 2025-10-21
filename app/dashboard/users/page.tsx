@@ -23,6 +23,7 @@ import {
 	Mail,
 	Calendar,
 	LogOut,
+	Copy,
 } from "lucide-react"
 import { useProfiles, getDispatchClient } from "dispatch-lib"
 
@@ -37,6 +38,7 @@ interface UserData {
 	reportsCount: number
 	joinedDate: string
 	lastActive: string
+	fcm_token: string
 }
 
 export default function UsersPage() {
@@ -56,6 +58,20 @@ export default function UsersPage() {
 		}
 	}
 
+	const copyToClipboard = async (text: string) => {
+		try {
+			await navigator.clipboard.writeText(text)
+			alert("Copied to clipboard!")
+		} catch (err) {
+			console.error("Failed to copy: ", err)
+			alert("Failed to copy to clipboard")
+		}
+	}
+
+	const truncateText = (text: string, maxLength: number = 8) => {
+		return text.length > maxLength ? text.substring(0, maxLength) + "..." : text
+	}
+
 	const users: UserData[] = (profiles ?? []).map((p) => {
 		const fullName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ")
 		const email = p.email ?? ""
@@ -70,6 +86,7 @@ export default function UsersPage() {
 			reportsCount: p.reports_count || 0,
 			joinedDate: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
 			lastActive: p.last_sign_in_at ? new Date(p.last_sign_in_at).toLocaleString() : "",
+			fcm_token: p.fcm_token || "",
 		}
 	})
 
@@ -202,9 +219,24 @@ export default function UsersPage() {
 															<CheckCircle className="h-4 w-4 text-blue-500" />
 														)}
 													</div>
-													<div className="text-xs text-muted-foreground">
-														ID: {user.id}
-													</div>
+													<div className="text-xs text-muted-foreground flex items-center gap-1">
+													ID: {truncateText(user.id)}
+													 <button
+													  onClick={() => copyToClipboard(user.id)}
+													 className="text-muted-foreground hover:text-foreground"
+													 >
+													<Copy className="h-3 w-3" />
+												</button>
+											</div>
+											<div className="text-xs text-muted-foreground flex items-center gap-1">
+												FCM: {truncateText(user.fcm_token)}
+												<button
+													onClick={() => copyToClipboard(user.fcm_token)}
+													className="text-muted-foreground hover:text-foreground"
+												>
+													<Copy className="h-3 w-3" />
+												</button>
+											</div>
 												</div>
 											</div>
 										</TableCell>
