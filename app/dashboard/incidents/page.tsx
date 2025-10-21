@@ -443,6 +443,13 @@ export default function IncidentsPage() {
 		return includeArchived ? true : !isArchived
 	})
 
+	// Helpers to parse YYYY-MM-DD as LOCAL dates (avoid UTC shift)
+	const isIsoDateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
+	const toLocalDateMs = (s: string) => {
+		const [y, m, d] = s.split('-').map(Number)
+		return new Date(y, (m || 1) - 1, d || 1).getTime()
+	}
+
 	const filteredIncidents = visibleReports.filter((report) => {
 		const q = (searchQuery ?? '').toLowerCase()
 		const title = String(report.incident_title ?? '').toLowerCase()
@@ -465,10 +472,15 @@ export default function IncidentsPage() {
 
 		let matchesDateRange = true
 		if (startDate || endDate) {
-			const reportDate = report.incident_date ? new Date(report.incident_date).getTime() : 0
-			const start = startDate ? new Date(startDate).getTime() : -Infinity
-			const end = endDate ? new Date(endDate).getTime() + 86400000 : Infinity
-			matchesDateRange = reportDate >= start && reportDate <= end
+			let reportDateMs = 0
+			if (report.incident_date) {
+				reportDateMs = isIsoDateOnly(report.incident_date)
+					? toLocalDateMs(report.incident_date)
+					: new Date(report.incident_date).getTime()
+			}
+			const startMs = startDate ? toLocalDateMs(startDate) : -Infinity
+			const endMs = endDate ? toLocalDateMs(endDate) + 86400000 - 1 : Infinity
+			matchesDateRange = reportDateMs >= startMs && reportDateMs <= endMs
 		}
 
 		return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory && matchesDateRange
@@ -485,8 +497,8 @@ export default function IncidentsPage() {
 		if (aValue === null || aValue === undefined) return sortDirection === "asc" ? 1 : -1
 		if (bValue === null || bValue === undefined) return sortDirection === "asc" ? -1 : 1
 
-		// Handle string comparison
-		if (typeof aValue === "string" && typeof bValue === "string") {
+		// Handle string comparison (except date fields)
+		if (typeof aValue === "string" && typeof bValue === "string" && sortField !== "incident_date" && sortField !== "created_at") {
 			const comparison = aValue.localeCompare(bValue)
 			return sortDirection === "asc" ? comparison : -comparison
 		}
@@ -507,24 +519,32 @@ export default function IncidentsPage() {
 
 		// Handle incident date + time comparison
 		if (sortField === "incident_date") {
-			const aDate = new Date(aValue as string)
-			const bDate = new Date(bValue as string)
-
-			// If dates are the same, compare by time
-			if (aDate.toDateString() === bDate.toDateString()) {
-				const aTime = a.incident_time || "00:00"
-				const bTime = b.incident_time || "00:00"
-				const aDateTime = new Date(`${aDate.toDateString()} ${aTime}`)
-				const bDateTime = new Date(`${bDate.toDateString()} ${bTime}`)
-				const comparison = aDateTime.getTime() - bDateTime.getTime()
-				return sortDirection === "asc" ? comparison : -comparison
+			const parseDateTime = (r: Report) => {
+				const dateStr = r.incident_date as string
+				if (!dateStr) return 0
+				if (isIsoDateOnly(dateStr)) {
+					let ms = toLocalDateMs(dateStr)
+					const t = r.incident_time
+					if (t && /^\d{2}:\d{2}/.test(t)) {
+						const [hhStr, mmStr] = t.split(":")
+						const hh = parseInt(hhStr, 10)
+						const mm = parseInt(mmStr, 10)
+						if (!Number.isNaN(hh)) ms += hh * 3600000
+						if (!Number.isNaN(mm)) ms += mm * 60000
+					}
+					return ms
+				}
+				const d = new Date(dateStr).getTime()
+				return Number.isNaN(d) ? 0 : d
 			}
-
-			const comparison = aDate.getTime() - bDate.getTime()
+			const aMs = parseDateTime(a)
+			const bMs = parseDateTime(b)
+			const comparison = aMs - bMs
 			return sortDirection === "asc" ? comparison : -comparison
 		}
 
-		return 0
+
+			return 0
 	})
 
 	const handleSort = (field: keyof Report) => {
