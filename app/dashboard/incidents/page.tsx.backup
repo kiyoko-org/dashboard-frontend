@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,7 +32,7 @@ import {
 	UserPlus,
 	Check,
 	X,
-	ImageIcon,
+	Image,
 	File,
 	Music,
 	FileText,
@@ -43,7 +42,6 @@ import {
 import { useRealtimeReports, getDispatchClient, useCategories, useOfficers } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
 import jsPDF from "jspdf"
-import autoTable from "jspdf-autotable"
 import "jspdf/dist/polyfills.es"
 
 type Report = Database["public"]["Tables"]["reports"]["Row"]
@@ -131,7 +129,7 @@ export default function IncidentsPage() {
 
 			const columns = ["ID", "Title", "Category", "Date", "Location", "Status"]
 
-			autoTable(doc, {
+			doc.autoTable({
 				head: [columns],
 				body: tableData,
 				startY: yPos,
@@ -140,7 +138,7 @@ export default function IncidentsPage() {
 					fontSize: 8,
 					cellPadding: 2,
 				},
-				headStyles: {
+				headerStyles: {
 					fillColor: [66, 133, 244],
 					textColor: 255,
 					fontStyle: "bold",
@@ -217,9 +215,8 @@ export default function IncidentsPage() {
 		let cancelled = false
 			; (async () => {
 				const newMap: Record<number, string> = {}
-				const attachments = selectedReportForDetail.attachments!
-				for (let i = 0; i < attachments.length; i++) {
-					const attachment = attachments[i]
+				for (let i = 0; i < selectedReportForDetail.attachments.length; i++) {
+					const attachment = selectedReportForDetail.attachments[i]
 					const fileType = getFileType(attachment)
 					if (fileType === 'image') {
 						try {
@@ -262,7 +259,7 @@ export default function IncidentsPage() {
 	const getFileIcon = (fileType: string) => {
 		switch (fileType) {
 			case 'image':
-				return ImageIcon
+				return Image
 			case 'audio':
 				return Music
 			case 'video':
@@ -307,7 +304,7 @@ export default function IncidentsPage() {
 			}
 
 			// Combine all chunks into a single blob
-			const blob = new Blob(chunks as BlobPart[])
+			const blob = new Blob(chunks)
 
 			// Create download link
 			const link = document.createElement('a')
@@ -463,15 +460,7 @@ export default function IncidentsPage() {
 			(report.sub_category !== null && report.sub_category !== undefined &&
 				report.sub_category.toString() === subcategoryFilter)
 
-		let matchesDateRange = true
-		if (startDate || endDate) {
-			const reportDate = report.incident_date ? new Date(report.incident_date).getTime() : 0
-			const start = startDate ? new Date(startDate).getTime() : -Infinity
-			const end = endDate ? new Date(endDate).getTime() + 86400000 : Infinity
-			matchesDateRange = reportDate >= start && reportDate <= end
-		}
-
-		return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory && matchesDateRange
+		return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory
 	})
 
 	// Sort the filtered incidents
@@ -639,7 +628,7 @@ export default function IncidentsPage() {
 		}
 	}
 
-	const saveDisabled = saving || !!(selectedReport && editedStatus === ((selectedReport.status ?? 'pending') as ReportStatus))
+	const saveDisabled = saving || (selectedReport && editedStatus === (selectedReport.status ?? 'pending'))
 
 	return (
 		<div className="flex flex-col">
@@ -789,37 +778,10 @@ export default function IncidentsPage() {
 											<Switch checked={includeArchived} onCheckedChange={setIncludeArchived} />
 											<span className="text-sm text-muted-foreground">Show archived</span>
 										</div>
-
-										{/* Date Range Filters */}
-										<div className="flex gap-2 items-center">
-											<div className="flex items-center gap-1">
-												<Calendar className="h-4 w-4 text-muted-foreground" />
-												<Input
-													type="date"
-													value={startDate}
-													onChange={(e) => setStartDate(e.target.value)}
-													className="w-32"
-													placeholder="Start date"
-												/>
-											</div>
-											<span className="text-muted-foreground">to</span>
-											<Input
-												type="date"
-												value={endDate}
-												onChange={(e) => setEndDate(e.target.value)}
-												className="w-32"
-												placeholder="End date"
-											/>
-										</div>
-
 										{/* Export Button */}
-										<Button
-											variant="outline"
-											onClick={exportToPDF}
-											disabled={isExporting || filteredIncidents.length === 0}
-										>
+										<Button variant="outline">
 											<Download className="mr-2 h-4 w-4" />
-											{isExporting ? "Exporting..." : "Export"}
+											Export
 										</Button>
 									</div>
 								</div>
@@ -968,7 +930,7 @@ export default function IncidentsPage() {
 															</Button>
 															<Button variant="ghost" size="icon" onClick={() => {
 																setSelectedReport(report)
-																setEditedStatus((report.status ?? "pending") as ReportStatus)
+																setEditedStatus(report.status ?? "pending")
 																setIsEditOpen(true)
 															}} title="Edit status" disabled={isArchived}>
 																<Edit className="h-4 w-4" />
@@ -1441,6 +1403,14 @@ export default function IncidentsPage() {
 											<div className="text-sm text-muted-foreground mb-1">Street Address</div>
 											<div className="font-medium">{selectedReportForDetail.street_address || 'Not specified'}</div>
 										</div>
+										{(selectedReportForDetail.city || selectedReportForDetail.province) && (
+											<div>
+												<div className="text-sm text-muted-foreground mb-1">City & Province</div>
+												<div className="font-medium">
+													{[selectedReportForDetail.city, selectedReportForDetail.province].filter(Boolean).join(', ')}
+												</div>
+											</div>
+										)}
 										{selectedReportForDetail.nearby_landmark && (
 											<div>
 												<div className="text-sm text-muted-foreground mb-1">Nearby Landmark</div>
@@ -1565,7 +1535,6 @@ export default function IncidentsPage() {
 																		<div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
 																	</div>
 																) : (
-																	// eslint-disable-next-line @next/next/no-img-element
 																	<img src={thumbnailSignedUrls[index] || attachment} alt={filename} className="h-16 w-24 object-cover rounded-md" />
 																)
 															) : fileType === 'audio' ? (
@@ -1606,6 +1575,26 @@ export default function IncidentsPage() {
 													</div>
 												)
 											})}
+										</div>
+									</div>
+								)}
+
+								{/* Description */}
+								{selectedReportForDetail.description && (
+									<div>
+										<div className="text-lg font-semibold mb-3">Description</div>
+										<div className="bg-muted p-3 rounded-lg">
+											<div className="whitespace-pre-wrap">{selectedReportForDetail.description}</div>
+										</div>
+									</div>
+								)}
+
+								{/* Admin Notes */}
+								{selectedReportForDetail.admin_notes && (
+									<div>
+										<div className="text-lg font-semibold mb-3">Admin Notes</div>
+										<div className="bg-muted p-3 rounded-lg border-l-4 border-orange-500">
+											<div className="whitespace-pre-wrap text-orange-800">{selectedReportForDetail.admin_notes}</div>
 										</div>
 									</div>
 								)}
@@ -1685,7 +1674,6 @@ export default function IncidentsPage() {
 								viewerSrc ? (
 									<div className="flex flex-col items-center justify-center">
 										{viewerType === 'image' && (
-											// eslint-disable-next-line @next/next/no-img-element
 											<img src={viewerSrc} alt={viewerFilename || 'image'} className="max-h-[70vh] w-auto object-contain rounded-md" />
 										)}
 										{viewerType === 'audio' && (
@@ -1731,7 +1719,7 @@ export default function IncidentsPage() {
 					<DialogHeader>
 						<DialogTitle>Archive Incident</DialogTitle>
 					</DialogHeader>
-					<p>Are you sure you want to archive &quot;{confirmArchiveReport?.incident_title}&quot;? This action will move the incident to archived status.</p>
+					<p>Are you sure you want to archive "{confirmArchiveReport?.incident_title}"? This action will move the incident to archived status.</p>
 					<div className="flex gap-2 justify-end">
 						<Button variant="outline" onClick={() => setConfirmArchiveReport(null)}>
 							Cancel
