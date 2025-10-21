@@ -742,109 +742,113 @@ export default function IncidentsPage() {
 							</Card>
 						</div>
 
-						{/* Filters and Actions */}
-						<Card>
-							<CardContent className="pt-6">
-								<div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-									<div className="flex flex-1 gap-2">
-										{/* Search */}
-										<div className="relative flex-1 max-w-sm">
-											<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-											<Input
-												value={searchQuery}
-												onChange={(e) => setSearchQuery(e.target.value)}
-												className="pl-9"
-											/>
-										</div>
-
-										{/* Status Filter */}
-										<Select value={statusFilter} onValueChange={setStatusFilter}>
-											<SelectTrigger className="w-[180px]">
-												<SelectValue placeholder="All Statuses" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="all">All Statuses</SelectItem>
-												<SelectItem value="pending">Pending</SelectItem>
-												<SelectItem value="assigned">Assigned</SelectItem>
-												<SelectItem value="in-progress">In Progress</SelectItem>
-												<SelectItem value="unresolved">Unresolved</SelectItem>
-												<SelectItem value="resolved">Resolved</SelectItem>
-												<SelectItem value="cancelled">Cancelled</SelectItem>
-											</SelectContent>
-										</Select>
-
-										{/* Category Filter */}
-										<Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
-											<SelectTrigger className="w-[180px]">
-												<SelectValue placeholder="All Categories" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="all">All Categories</SelectItem>
-												{categories?.map((category) => (
-													<SelectItem key={category.id} value={category.id.toString()}>
-														{category.name}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-
-										{/* Subcategory Filter */}
-										<Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
-											<SelectTrigger className="w-[180px]">
-												<SelectValue placeholder="All Subcategories" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="all">All Subcategories</SelectItem>
-												{getSubcategoriesForCategory(categoryFilter).map((subcategory, index) => (
-													<SelectItem key={index} value={index.toString()}>
-														{subcategory}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
+					{/* Filters and Actions */}
+					<Card>
+						<CardContent className="pt-6">
+							<div className="flex flex-col gap-4">
+								{/* First Row: Search and Filters */}
+								<div className="flex flex-col lg:flex-row gap-2">
+									{/* Search */}
+									<div className="relative flex-1 min-w-0">
+										<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+										<Input
+											value={searchQuery}
+											onChange={(e) => setSearchQuery(e.target.value)}
+											className="pl-9"
+										/>
 									</div>
 
-									<div className="flex items-center gap-3">
-										<div className="flex items-center gap-2">
-											<Switch checked={includeArchived} onCheckedChange={setIncludeArchived} />
-											<span className="text-sm text-muted-foreground">Show archived</span>
-										</div>
+									{/* Status Filter */}
+									<Select value={statusFilter} onValueChange={setStatusFilter}>
+										<SelectTrigger className="w-full lg:w-[160px]">
+											<SelectValue placeholder="All Statuses" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="all">All Statuses</SelectItem>
+											<SelectItem value="pending">Pending</SelectItem>
+											<SelectItem value="assigned">Assigned</SelectItem>
+											<SelectItem value="in-progress">In Progress</SelectItem>
+											<SelectItem value="unresolved">Unresolved</SelectItem>
+											<SelectItem value="resolved">Resolved</SelectItem>
+											<SelectItem value="cancelled">Cancelled</SelectItem>
+										</SelectContent>
+									</Select>
 
-										{/* Date Range Filters */}
-										<div className="flex gap-2 items-center">
-											<div className="flex items-center gap-1">
-												<Calendar className="h-4 w-4 text-muted-foreground" />
-												<Input
-													type="date"
-													value={startDate}
-													onChange={(e) => setStartDate(e.target.value)}
-													className="w-32"
-													placeholder="Start date"
-												/>
-											</div>
-											<span className="text-muted-foreground">to</span>
+									{/* Category Filter */}
+									<Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
+										<SelectTrigger className="w-full lg:w-[160px]">
+											<SelectValue placeholder="All Categories" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="all">All Categories</SelectItem>
+											{categories?.map((category) => (
+												<SelectItem key={category.id} value={category.id.toString()}>
+													{category.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+
+									{/* Subcategory Filter */}
+									<Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
+										<SelectTrigger className="w-full lg:w-[160px]">
+											<SelectValue placeholder="All Subcategories" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="all">All Subcategories</SelectItem>
+											{getSubcategoriesForCategory(categoryFilter).map((subcategory, index) => (
+												<SelectItem key={index} value={index.toString()}>
+													{subcategory}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+
+								{/* Second Row: Date Range, Archive Toggle, and Export */}
+								<div className="flex flex-col lg:flex-row gap-2 lg:items-center lg:justify-end">
+									{/* Date Range Filters */}
+									<div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center flex-1 lg:flex-none">
+										<div className="flex items-center gap-1 w-full sm:w-auto">
+											<Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
 											<Input
 												type="date"
-												value={endDate}
-												onChange={(e) => setEndDate(e.target.value)}
-												className="w-32"
-												placeholder="End date"
+												value={startDate}
+												onChange={(e) => setStartDate(e.target.value)}
+												className="flex-1 sm:w-32"
+												placeholder="Start date"
 											/>
 										</div>
-
-										{/* Export Button */}
-										<Button
-											variant="outline"
-											onClick={exportToPDF}
-											disabled={isExporting || filteredIncidents.length === 0}
-										>
-											<Download className="mr-2 h-4 w-4" />
-											{isExporting ? "Exporting..." : "Export"}
-										</Button>
+										<span className="text-muted-foreground hidden sm:inline">to</span>
+										<Input
+											type="date"
+											value={endDate}
+											onChange={(e) => setEndDate(e.target.value)}
+											className="flex-1 sm:w-32"
+											placeholder="End date"
+										/>
 									</div>
+
+									{/* Archive Toggle */}
+									<div className="flex items-center gap-2">
+										<Switch checked={includeArchived} onCheckedChange={setIncludeArchived} />
+										<span className="text-sm text-muted-foreground">Show archived</span>
+									</div>
+
+									{/* Export Button */}
+									<Button
+										variant="outline"
+										onClick={exportToPDF}
+										disabled={isExporting || filteredIncidents.length === 0}
+										className="w-full lg:w-auto"
+									>
+										<Download className="mr-2 h-4 w-4" />
+										{isExporting ? "Exporting..." : "Export"}
+									</Button>
 								</div>
-							</CardContent>
-						</Card>
+							</div>
+						</CardContent>
+					</Card>
 
 						{/* Incidents Table */}
 						<Card>
