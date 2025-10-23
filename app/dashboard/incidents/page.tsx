@@ -543,8 +543,7 @@ export default function IncidentsPage() {
 			return sortDirection === "asc" ? comparison : -comparison
 		}
 
-
-			return 0
+		return 0
 	})
 
 	const handleSort = (field: keyof Report) => {
@@ -1260,13 +1259,22 @@ export default function IncidentsPage() {
 																	.select('*', { count: 'exact', head: true })
 																	.eq('assigned_report_id', selectedReportForAssignment?.id)
 
-																if (count === 0 && report.status === 'assigned') {
-																	// Update report status to pending
-																	await client.updateReport(selectedReportForAssignment!.id, { status: 'pending' })
+															if (count === 0 && report.status === 'assigned') {
+																// Update report status to pending
+																await client.updateReport(selectedReportForAssignment!.id, { status: 'pending' })
+
+																// Notify reporter of status change to pending
+																if (selectedReportForAssignment.reporter_id) {
+																	await client.notifyUser(
+																		selectedReportForAssignment.reporter_id,
+																		"Report Status Updated",
+																		`Your report #${selectedReportForAssignment.id} status has been updated to pending`
+																	)
 																}
-															} catch (error) {
-																console.error("Failed to unassign officer:", error)
 															}
+														} catch (error) {
+															console.error("Failed to unassign officer:", error)
+														}
 														}}
 														title="Unassign from this report"
 													>
@@ -1364,6 +1372,15 @@ export default function IncidentsPage() {
 												console.log("Report status updated to assigned:", selectedReportForAssignment.id, selectedReportForAssignment.incident_title)
 
 												console.log("Update report status result:", { data, error })
+											}
+
+											// Notify reporter of assignment
+											if (selectedReportForAssignment.reporter_id) {
+												await client.notifyUser(
+													selectedReportForAssignment.reporter_id,
+													"Officers Assigned",
+													`Officers have been assigned to your report #${selectedReportForAssignment.id}`
+												)
 											}
 
 											setIsAssignDialogOpen(false)
