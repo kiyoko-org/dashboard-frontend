@@ -11,7 +11,6 @@ import {
   Users,
   Settings,
   Database,
-  Archive,
   Phone,
   LogOut,
   ShieldCheck,
@@ -48,11 +47,6 @@ const navigation = [
     name: "Database",
     href: "/dashboard/database",
     icon: Database,
-  },
-  {
-    name: "Archive",
-    href: "/dashboard/archive",
-    icon: Archive,
   },
   {
     name: "Settings",
