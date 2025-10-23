@@ -8,14 +8,7 @@ import { Input } from "@/components/ui/input"
 import { 
   Search,
   ChevronRight,
-  User,
-  Shield,
-  Lock,
-  Bell,
-  Globe,
-  Eye,
   Database,
-  HelpCircle
 } from "lucide-react"
 
 interface SettingItem {
@@ -29,14 +22,7 @@ export default function SettingsPage() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const settingsItems: SettingItem[] = [
-    { id: "account", label: "Account Settings", icon: User, href: "/dashboard/settings/account" },
-    { id: "security", label: "Security and Access", icon: Shield, href: "/dashboard/settings/security" },
-    { id: "privacy", label: "Privacy and Safety", icon: Lock, href: "/dashboard/settings/privacy" },
-    { id: "notifications", label: "Notifications", icon: Bell, href: "/dashboard/settings/notifications" },
-    { id: "geographic", label: "Geographic Configuration", icon: Globe, href: "/dashboard/settings/geographic" },
-    { id: "display", label: "Display and Appearance", icon: Eye, href: "/dashboard/settings/display" },
     { id: "data", label: "Data Management", icon: Database, href: "/dashboard/settings/data" },
-    { id: "help", label: "Help Center", icon: HelpCircle, href: "/dashboard/settings/help" },
   ]
 
   const filteredItems = settingsItems.filter((item) =>
