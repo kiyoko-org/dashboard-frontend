@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/table"
 import {
 	Search,
-	Download,
 	CheckCircle,
 	User,
 	Mail,
@@ -176,12 +175,6 @@ export default function UsersPage() {
 
 
 							</div>
-
-							{/* Export Button */}
-							<Button variant="outline">
-								<Download className="mr-2 h-4 w-4" />
-								Export
-							</Button>
 						</div>
 					</CardContent>
 				</Card>
