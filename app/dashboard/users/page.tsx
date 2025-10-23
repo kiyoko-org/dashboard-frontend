@@ -197,7 +197,6 @@ export default function UsersPage() {
 								<TableRow>
 									<TableHead>User</TableHead>
 									<TableHead>Contact</TableHead>
-									<TableHead>Role</TableHead>
 									<TableHead>Reports</TableHead>
 									<TableHead>Joined</TableHead>
 									<TableHead>Last Active</TableHead>
@@ -248,7 +247,6 @@ export default function UsersPage() {
 												</div>
 											</div>
 										</TableCell>
-										<TableCell>{getRoleBadge(user.role)}</TableCell>
 										<TableCell>
 											<span className="font-medium">{user.reportsCount}</span>
 										</TableCell>
