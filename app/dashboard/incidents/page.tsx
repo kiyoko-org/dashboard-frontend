@@ -18,6 +18,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 import {
 	Search,
 	Download,
@@ -579,6 +580,7 @@ export default function IncidentsPage() {
 	const [selectedReport, setSelectedReport] = useState<Report | null>(null)
 	type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled" | "unresolved"
 	const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
+	const [editedPoliceNotes, setEditedPoliceNotes] = useState<string>("")
 	const [saving, setSaving] = useState(false)
 	const [updateError, setUpdateError] = useState<string | null>(null)
 
@@ -601,10 +603,13 @@ export default function IncidentsPage() {
 		try {
 			const client = getDispatchClient()
 
-			const updateData: any = { status: editedStatus }
-			if (editedStatus === 'cancelled') {
-				updateData.is_archived = true
-			}
+		const updateData: any = { status: editedStatus }
+		if (editedStatus === 'cancelled') {
+			updateData.is_archived = true
+		}
+		if (editedStatus === 'resolved' && editedPoliceNotes) {
+			updateData.police_notes = editedPoliceNotes
+		}
 
 			const result = await client.updateReport(selectedReport.id, updateData)
 			if (result.error) {
@@ -623,6 +628,7 @@ export default function IncidentsPage() {
 
 			setIsEditOpen(false)
 			setSelectedReport(null)
+			setEditedPoliceNotes("")
 		} catch (err) {
 			console.error("Failed to update status", err)
 			setUpdateError(err instanceof Error ? err.message : 'Failed to update status')
@@ -965,6 +971,7 @@ export default function IncidentsPage() {
 															<Button variant="ghost" size="icon" onClick={() => {
 																setSelectedReport(report)
 																setEditedStatus((report.status ?? "pending") as ReportStatus)
+																setEditedPoliceNotes(report.police_notes ?? "")
 																setIsEditOpen(true)
 															}} title="Edit status" disabled={isArchived}>
 																<Edit className="h-4 w-4" />
@@ -991,15 +998,16 @@ export default function IncidentsPage() {
 				)}
 			</div>
 
-			<Dialog open={isEditOpen} onOpenChange={(open) => {
-				if (!saving && !open) {
-					setIsEditOpen(false)
-					setSelectedReport(null)
-					setShowCancelConfirm(false)
-				} else {
-					setIsEditOpen(open)
-				}
-			}}>
+		<Dialog open={isEditOpen} onOpenChange={(open) => {
+			if (!saving && !open) {
+				setIsEditOpen(false)
+				setSelectedReport(null)
+				setEditedPoliceNotes("")
+				setShowCancelConfirm(false)
+			} else {
+				setIsEditOpen(open)
+			}
+		}}>
 				<DialogPortal>
 					<DialogOverlay />
 					<DialogContent>
@@ -1045,6 +1053,18 @@ export default function IncidentsPage() {
 									</SelectContent>
 								</Select>
 							</div>
+							{editedStatus === 'resolved' && (
+								<div>
+									<div className="text-sm text-muted-foreground mb-2">Police Notes</div>
+									<Textarea
+										value={editedPoliceNotes}
+										onChange={(e) => setEditedPoliceNotes(e.target.value)}
+										placeholder="Enter police notes for this resolved incident..."
+										disabled={saving}
+										className="min-h-24"
+									/>
+								</div>
+							)}
 							{updateError && (
 								<div className="text-sm text-red-600 border border-red-300 rounded p-2 bg-red-50">
 									{updateError}
@@ -1064,6 +1084,7 @@ export default function IncidentsPage() {
 									if (!saving) {
 										setIsEditOpen(false)
 										setSelectedReport(null)
+										setEditedPoliceNotes("")
 										setShowCancelConfirm(false)
 									}
 								}}
@@ -1655,6 +1676,16 @@ export default function IncidentsPage() {
 										)}
 									</div>
 								</div>
+
+								{/* Police Notes */}
+								{selectedReportForDetail.police_notes && (
+									<div>
+										<div className="text-lg font-semibold mb-3">Police Notes</div>
+										<div className="bg-muted p-3 rounded-lg">
+											<div className="whitespace-pre-wrap">{selectedReportForDetail.police_notes}</div>
+										</div>
+									</div>
+								)}
 							</div>
 						)}
 						<DialogFooter>

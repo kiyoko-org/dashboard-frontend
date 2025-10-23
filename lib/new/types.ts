@@ -32,6 +32,7 @@ export interface Database {
 					status: 'pending' | 'assigned' | 'in-progress' | 'unresolved' | 'resolved' | 'cancelled'
 					priority: 'low' | 'medium' | 'high' | 'critical'
 					assigned_to: string | null
+					police_notes: string | null
 					created_at: string
 					updated_at: string
 				}
@@ -60,6 +61,7 @@ export interface Database {
 					status?: 'pending' | 'assigned' | 'in-progress' | 'resolved' | 'cancelled'
 					priority?: 'low' | 'medium' | 'high' | 'critical'
 					assigned_to?: string | null
+					police_notes?: string | null
 					created_at?: string
 					updated_at?: string
 				}
@@ -88,6 +90,7 @@ export interface Database {
 					status?: 'pending' | 'assigned' | 'in-progress' | 'resolved' | 'cancelled'
 					priority?: 'low' | 'medium' | 'high' | 'critical'
 					assigned_to?: string | null
+					police_notes?: string | null
 					created_at?: string
 					updated_at?: string
 				}
