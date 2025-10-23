@@ -17,7 +17,7 @@ import { useEffect, useState, useRef } from "react"
 import { useForm } from '@tanstack/react-form'
 import { FieldGroup, FieldLabel, FieldError, Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { uppercaseFirstLetter } from "@/lib/utils"
+import { uppercaseFirstLetter, generatePassword } from "@/lib/utils"
 import { Header } from "@/components/layout/header"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { z } from "zod"
@@ -53,7 +53,6 @@ const officerSchema = z.object({
 	first_name: z.string().min(1, "First name is required"),
 	middle_name: z.string(),
 	last_name: z.string().min(1, "Last name is required"),
-	password: z.string().min(6, "Password must be at least 6 characters"),
 }) as any
 
 const editOfficerSchema = z.object({
@@ -112,7 +111,6 @@ export default function OfficersPage() {
 			first_name: "",
 			middle_name: "",
 			last_name: "",
-			password: "",
 		},
 		validators: {
 			onSubmit: officerSchema as any
@@ -123,6 +121,8 @@ export default function OfficersPage() {
 				setErrorMessage(null)
 				setSuccessMessage(null)
 
+				const generatedPassword = generatePassword(6)
+
 				const client = getDispatchClient()
 				const result = await client.createOfficer(
 					value.badge_number,
@@ -131,7 +131,7 @@ export default function OfficersPage() {
 					value.first_name,
 					value.middle_name,
 					value.last_name,
-					value.password
+					generatedPassword
 				)
 
 				console.log(value)
@@ -152,7 +152,7 @@ export default function OfficersPage() {
 						lastName: value.last_name,
 						badgeNumber: value.badge_number,
 						rank: value.rank,
-						password: value.password,
+						password: generatedPassword,
 					}),
 				}).catch((err) => console.error("Failed to send email:", err))
 
@@ -473,32 +473,6 @@ export default function OfficersPage() {
 									}}
 								/>
 							</div>
-
-							{/* Password field */}
-							<addForm.Field
-								name="password"
-								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
-									return (
-										<Field data-invalid={isInvalid}>
-											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)} *</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												type="password"
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												aria-invalid={isInvalid}
-												placeholder="••••••••"
-												autoComplete="off"
-											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
-										</Field>
-									)
-								}}
-							/>
 
 							{errorMessage && (
 								<div className="text-sm text-red-600 bg-red-50 p-3 rounded">
