@@ -101,15 +101,21 @@ export default function IncidentsPage() {
 				format: "a4",
 			})
 
-			const pageWidth = doc.internal.pageSize.getWidth()
-			const pageHeight = doc.internal.pageSize.getHeight()
-			const margin = 10
-			let yPos = margin
+		const pageWidth = doc.internal.pageSize.getWidth()
+		const pageHeight = doc.internal.pageSize.getHeight()
+		const margin = 10
+		let yPos = margin
 
-			doc.setFont("times", "bold")
-			doc.setFontSize(14)
-			const title = generateReportTitle()
-			doc.text(title, margin, yPos)
+		doc.setFont("times", "bold")
+		doc.setFontSize(16)
+		doc.text("Dispatch", pageWidth / 2, yPos, { align: "center" })
+
+		yPos += 8
+
+		doc.setFont("times", "bold")
+		doc.setFontSize(14)
+		const title = generateReportTitle()
+		doc.text(title, pageWidth / 2, yPos, { align: "center" })
 
 			yPos += 10
 
