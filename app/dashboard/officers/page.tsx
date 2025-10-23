@@ -9,6 +9,8 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
+	DialogPortal,
+	DialogOverlay,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState, useRef } from "react"
@@ -49,19 +51,19 @@ const officerSchema = z.object({
 	rank: z.string().min(1, "Rank is required"),
 	email: z.string().email("Invalid email address"),
 	first_name: z.string().min(1, "First name is required"),
-	middle_name: z.string().optional(),
+	middle_name: z.string(),
 	last_name: z.string().min(1, "Last name is required"),
 	password: z.string().min(6, "Password must be at least 6 characters"),
-})
+}) as any
 
 const editOfficerSchema = z.object({
 	badge_number: z.string().regex(/^\d+$/, {
 		message: 'String must contain only digits (0-9).',
 	}).min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
 	first_name: z.string().min(1, "First name is required"),
-	middle_name: z.string().optional(),
+	middle_name: z.string(),
 	last_name: z.string().min(1, "Last name is required"),
-})
+}) as any
 
 export default function OfficersPage() {
 	const [addOpen, setAddOpen] = useState(false)
@@ -75,6 +77,7 @@ export default function OfficersPage() {
 	const [deleteOpen, setDeleteOpen] = useState(false)
 	const [deletingOfficer, setDeletingOfficer] = useState<any>(null)
 	const [signingOutOfficerId, setSigningOutOfficerId] = useState<string | null>(null)
+	const [isCreating, setIsCreating] = useState(false)
 
 	const { officers, loading, updateOfficer, deleteOfficer } = useOfficers()
 
@@ -112,10 +115,11 @@ export default function OfficersPage() {
 			password: "",
 		},
 		validators: {
-			onSubmit: officerSchema
+			onSubmit: officerSchema as any
 		},
 		onSubmit: async ({ value }) => {
 			try {
+				setIsCreating(true)
 				setErrorMessage(null)
 				setSuccessMessage(null)
 
@@ -135,14 +139,30 @@ export default function OfficersPage() {
 				if (result.error) {
 					console.error("something happened", result.error)
 					setErrorMessage(result.error.message)
+					setIsCreating(false)
 					return
 				}
+
+				await fetch("/api/send-officer-email", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						email: value.email,
+						firstName: value.first_name,
+						lastName: value.last_name,
+						badgeNumber: value.badge_number,
+						rank: value.rank,
+						password: value.password,
+					}),
+				}).catch((err) => console.error("Failed to send email:", err))
 
 				setSuccessMessage(`Officer ${value.first_name} ${value.last_name} created successfully!`)
 				setAddOpen(false)
 				addForm.reset()
 			} catch (error) {
 				setErrorMessage(error instanceof Error ? error.message : "Failed to create officer")
+			} finally {
+				setIsCreating(false)
 			}
 		}
 	})
@@ -155,7 +175,7 @@ export default function OfficersPage() {
 			last_name: editingOfficer?.last_name || "",
 		},
 		validators: {
-			onSubmit: editOfficerSchema
+			onSubmit: editOfficerSchema as any
 		},
 		onSubmit: async ({ value }) => {
 			try {
@@ -249,6 +269,16 @@ export default function OfficersPage() {
 				}
 			}}>
 				<DialogContent className="sm:max-w-2xl">
+					{isCreating && (
+						<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+							<div className="flex flex-col items-center gap-2">
+								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+								<div className="text-sm text-muted-foreground">
+									Creating officer and sending email...
+								</div>
+							</div>
+						</div>
+					)}
 					<DialogHeader>
 						<DialogTitle>Add Officer</DialogTitle>
 						<DialogDescription>
@@ -476,7 +506,9 @@ export default function OfficersPage() {
 								</div>
 							)}
 
-							<Button type="submit">Create Officer</Button>
+							<Button type="submit" disabled={isCreating}>
+								{isCreating ? "Creating..." : "Create Officer"}
+							</Button>
 						</FieldGroup>
 					</form>
 

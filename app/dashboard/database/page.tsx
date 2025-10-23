@@ -109,7 +109,7 @@ export default function DatabasePage() {
 	const [editSubcategoryInput, setEditSubcategoryInput] = useState("")
 	const [confirmDeleteCategory, setConfirmDeleteCategory] = useState<{ id: number; name: string; sub_categories: string[] | null } | null>(null)
 	const [deletedCategory, setDeletedCategory] = useState<{ id: number; name: string; sub_categories: string[] | null } | null>(null)
-	const [undoTimer, setUndoTimer] = useState<number | null>(null)
+	const [undoTimer, setUndoTimer] = useState<NodeJS.Timeout | null>(null)
 
 	return (
 		<>
