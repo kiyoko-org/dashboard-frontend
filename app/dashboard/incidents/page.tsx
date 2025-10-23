@@ -595,39 +595,6 @@ export default function IncidentsPage() {
 		try {
 			const client = getDispatchClient()
 
-			if (editedStatus === 'resolved') {
-				const { data: assignedOfficers, error: fetchError } = await client.supabaseClient
-					.from('officers')
-					.select('id')
-					.eq('assigned_report_id', selectedReport.id)
-
-				if (fetchError) {
-					throw new Error(`Failed to fetch assigned officers: ${fetchError.message}`)
-				}
-
-				if (assignedOfficers && assignedOfficers.length > 0) {
-					for (const officer of assignedOfficers) {
-						const { error: unassignError } = await client.supabaseClient
-							.from('officers')
-							.update({ assigned_report_id: null })
-							.eq('id', officer.id)
-
-						// Send notification to officer about unassignment
-						if (!unassignError) {
-							await client.notifyUser(
-								officer.id,
-								"Assignment Removed",
-								`Your assignment to incident #${selectedReport.id} has been removed`
-							)
-						}
-
-						if (unassignError) {
-							throw new Error(`Failed to unassign officer ${officer.id}: ${unassignError.message}`)
-						}
-					}
-				}
-			}
-
 			const updateData: any = { status: editedStatus }
 			if (editedStatus === 'cancelled') {
 				updateData.is_archived = true
