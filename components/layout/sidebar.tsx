@@ -16,7 +16,6 @@ import {
   LogOut,
   ShieldCheck,
   X,
-  MapPin,
 } from "lucide-react"
 
 const navigation = [
@@ -39,11 +38,6 @@ const navigation = [
     name: "Officers",
     href: "/dashboard/officers",
     icon: ShieldCheck,
-  },
-  {
-    name: "Barangays",
-    href: "/dashboard/barangays",
-    icon: MapPin,
   },
   {
     name: "Hotlines",
