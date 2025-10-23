@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -586,7 +585,11 @@ export default function IncidentsPage() {
 
 	const handleSaveStatus = async () => {
 		if (!selectedReport) return
-		if (editedStatus === (selectedReport.status ?? 'pending')) {
+		
+		const statusChanged = editedStatus !== (selectedReport.status ?? 'pending')
+		const policeNotesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
+		
+		if (!statusChanged && !policeNotesChanged) {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			return
@@ -603,11 +606,14 @@ export default function IncidentsPage() {
 		try {
 			const client = getDispatchClient()
 
-		const updateData: any = { status: editedStatus }
+		const updateData: any = {}
+		if (statusChanged) {
+			updateData.status = editedStatus
+		}
 		if (editedStatus === 'cancelled') {
 			updateData.is_archived = true
 		}
-		if (editedStatus === 'resolved' && editedPoliceNotes) {
+		if (policeNotesChanged && (editedStatus === 'resolved' || selectedReport.status === 'resolved')) {
 			updateData.police_notes = editedPoliceNotes
 		}
 
@@ -617,7 +623,7 @@ export default function IncidentsPage() {
 			}
 
 			// Notify reporter of status change
-			if (selectedReport.reporter_id) {
+			if (statusChanged && selectedReport.reporter_id) {
 				const statusText = String(editedStatus ?? 'pending').replace('-', ' ')
 				await client.notifyUser(
 					selectedReport.reporter_id,
@@ -637,7 +643,7 @@ export default function IncidentsPage() {
 		}
 	}
 
-	const saveDisabled = saving || !!(selectedReport && editedStatus === ((selectedReport.status ?? 'pending') as ReportStatus))
+	const saveDisabled = saving || !!(selectedReport && editedStatus === ((selectedReport.status ?? 'pending') as ReportStatus) && editedPoliceNotes === (selectedReport.police_notes ?? ""))
 
 	return (
 		<div className="flex flex-col">
@@ -1053,7 +1059,7 @@ export default function IncidentsPage() {
 									</SelectContent>
 								</Select>
 							</div>
-							{editedStatus === 'resolved' && (
+							{(editedStatus === 'resolved' || selectedReport?.status === 'resolved') && (
 								<div>
 									<div className="text-sm text-muted-foreground mb-2">Police Notes</div>
 									<Textarea
@@ -1102,7 +1108,7 @@ export default function IncidentsPage() {
 								</Button>
 							) : (
 								<Button onClick={handleSaveStatus} disabled={saveDisabled}>
-									{saving ? "Saving..." : (selectedReport && editedStatus === (selectedReport.status ?? 'pending') ? 'No Changes' : 'Save')}
+									{saving ? "Saving..." : (selectedReport && editedStatus === (selectedReport.status ?? 'pending') && editedPoliceNotes === (selectedReport.police_notes ?? "") ? 'No Changes' : 'Save')}
 								</Button>
 							)}
 						</DialogFooter>
