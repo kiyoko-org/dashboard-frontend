@@ -1059,7 +1059,7 @@ export default function IncidentsPage() {
 									</SelectContent>
 								</Select>
 							</div>
-							{(editedStatus === 'resolved' || selectedReport?.status === 'resolved') && (
+							{editedStatus === 'resolved' && (
 								<div>
 									<div className="text-sm text-muted-foreground mb-2">Police Notes</div>
 									<Textarea
@@ -1659,7 +1659,16 @@ export default function IncidentsPage() {
 											<div>Loading officers...</div>
 										) : (
 											(() => {
-												const assignedOfficers = officers.filter(officer => officer.assigned_report_id === selectedReportForDetail.id)
+												let assignedOfficers;
+												
+												if (selectedReportForDetail.status === 'resolved' && (selectedReportForDetail.officers_involved?.length ?? 0) > 0) {
+													assignedOfficers = officers.filter(officer => 
+														selectedReportForDetail.officers_involved?.includes(officer.id)
+													);
+												} else {
+													assignedOfficers = officers.filter(officer => officer.assigned_report_id === selectedReportForDetail.id);
+												}
+												
 												if (assignedOfficers.length === 0) {
 													return <div className="text-muted-foreground">No officers assigned</div>
 												}
