@@ -105,6 +105,8 @@ export default function OfficersPage() {
 	const [editingOfficer, setEditingOfficer] = useState<any>(null)
 	const [deleteOpen, setDeleteOpen] = useState(false)
 	const [deletingOfficer, setDeletingOfficer] = useState<any>(null)
+	const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+	const [officerToLogout, setOfficerToLogout] = useState<any>(null)
 	const [signingOutOfficerId, setSigningOutOfficerId] = useState<string | null>(null)
 	const [isCreating, setIsCreating] = useState(false)
 
@@ -246,11 +248,13 @@ export default function OfficersPage() {
 		}
 	}, [editingOfficer, editForm])
 
-	const handleSignOut = async (userId: string) => {
-		setSigningOutOfficerId(userId)
+	const handleSignOut = async () => {
+		if (!officerToLogout) return
+
+		setSigningOutOfficerId(officerToLogout.id)
 		try {
 			const client = getDispatchClient()
-			const { data, error } = await client.supabaseClient.rpc('signout_user', { user_uuid: userId })
+			const { data, error } = await client.supabaseClient.rpc('signout_user', { user_uuid: officerToLogout.id })
 			if (error) {
 				console.error("Failed to sign out officer:", error)
 				alert("Failed to sign out officer: " + error.message)
@@ -259,7 +263,14 @@ export default function OfficersPage() {
 			}
 		} finally {
 			setSigningOutOfficerId(null)
+			setLogoutDialogOpen(false)
+			setOfficerToLogout(null)
 		}
+	}
+
+	const openLogoutDialog = (officer: any) => {
+		setOfficerToLogout(officer)
+		setLogoutDialogOpen(true)
 	}
 
 	const handleDeleteOfficer = async () => {
@@ -708,6 +719,63 @@ export default function OfficersPage() {
 				</DialogContent>
 			</Dialog>
 
+			<Dialog open={logoutDialogOpen} onOpenChange={(open) => {
+				setLogoutDialogOpen(open)
+				if (!open) {
+					setOfficerToLogout(null)
+				}
+			}}>
+				<DialogContent className="sm:max-w-md">
+					{signingOutOfficerId && (
+						<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+							<div className="flex flex-col items-center gap-2">
+								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+								<div className="text-sm text-muted-foreground">
+									Logging out officer...
+								</div>
+							</div>
+						</div>
+					)}
+					<DialogHeader>
+						<DialogTitle>Confirm Logout</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to log out this officer? They will need to sign in again to access their account.
+						</DialogDescription>
+					</DialogHeader>
+
+					{officerToLogout && (
+						<div className="py-4">
+							<div className="bg-gray-50 p-4 rounded-lg">
+								<p className="font-medium">Officer Details:</p>
+								<p className="text-sm text-gray-600">
+									{officerToLogout.first_name} {officerToLogout.middle_name} {officerToLogout.last_name}
+								</p>
+								<p className="text-sm text-gray-600">
+									Badge: {officerToLogout.badge_number}
+								</p>
+							</div>
+						</div>
+					)}
+
+					<div className="flex justify-end space-x-2">
+						<Button
+							variant="outline"
+							onClick={() => setLogoutDialogOpen(false)}
+							disabled={!!signingOutOfficerId}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleSignOut}
+							disabled={!!signingOutOfficerId}
+						>
+							{signingOutOfficerId ? "Logging out..." : "Logout Officer"}
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
+
 			<div className="flex-1 space-y-6 p-6">
 				{successMessage && (
 					<div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">
@@ -758,7 +826,7 @@ export default function OfficersPage() {
 													<Button
 														variant="outline"
 														size="sm"
-														onClick={() => handleSignOut(officer.id)}
+														onClick={() => openLogoutDialog(officer)}
 														disabled={signingOutOfficerId === officer.id}
 													>
 														<LogOut className="h-4 w-4" />

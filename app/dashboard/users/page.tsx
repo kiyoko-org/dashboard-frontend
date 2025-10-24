@@ -16,6 +16,13 @@ import {
 	TableRow,
 } from "@/components/ui/table"
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog"
+import {
 	Search,
 	CheckCircle,
 	User,
@@ -43,18 +50,35 @@ interface UserData {
 export default function UsersPage() {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [roleFilter, setRoleFilter] = useState("all")
+	const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+	const [userToLogout, setUserToLogout] = useState<UserData | null>(null)
+	const [isLoggingOut, setIsLoggingOut] = useState(false)
 
 	const { profiles, loading, error } = useProfiles()
 
-	const handleSignOut = async (userId: string) => {
-		const client = getDispatchClient()
-		const { data, error } = await client.supabaseClient.rpc('signout_user', { user_uuid: userId })
-		if (error) {
-			console.error("Failed to sign out user:", error)
-			alert("Failed to sign out user: " + error.message)
-		} else {
-			alert("User signed out successfully")
+	const handleSignOut = async () => {
+		if (!userToLogout) return
+
+		setIsLoggingOut(true)
+		try {
+			const client = getDispatchClient()
+			const { data, error } = await client.supabaseClient.rpc('signout_user', { user_uuid: userToLogout.id })
+			if (error) {
+				console.error("Failed to sign out user:", error)
+				alert("Failed to sign out user: " + error.message)
+			} else {
+				alert("User signed out successfully")
+			}
+		} finally {
+			setIsLoggingOut(false)
+			setLogoutDialogOpen(false)
+			setUserToLogout(null)
 		}
+	}
+
+	const openLogoutDialog = (user: UserData) => {
+		setUserToLogout(user)
+		setLogoutDialogOpen(true)
 	}
 
 	const copyToClipboard = async (text: string) => {
@@ -121,6 +145,63 @@ export default function UsersPage() {
 	return (
 		<div className="flex flex-col">
 			<Header title="User Management" />
+
+			<Dialog open={logoutDialogOpen} onOpenChange={(open) => {
+				setLogoutDialogOpen(open)
+				if (!open) {
+					setUserToLogout(null)
+				}
+			}}>
+				<DialogContent className="sm:max-w-md">
+					{isLoggingOut && (
+						<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+							<div className="flex flex-col items-center gap-2">
+								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+								<div className="text-sm text-muted-foreground">
+									Logging out user...
+								</div>
+							</div>
+						</div>
+					)}
+					<DialogHeader>
+						<DialogTitle>Confirm Logout</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to log out this user? They will need to sign in again to access their account.
+						</DialogDescription>
+					</DialogHeader>
+
+					{userToLogout && (
+						<div className="py-4">
+							<div className="bg-gray-50 p-4 rounded-lg">
+								<p className="font-medium">User Details:</p>
+								<p className="text-sm text-gray-600">
+									{userToLogout.name}
+								</p>
+								<p className="text-sm text-gray-600">
+									{userToLogout.email}
+								</p>
+							</div>
+						</div>
+					)}
+
+					<div className="flex justify-end space-x-2">
+						<Button
+							variant="outline"
+							onClick={() => setLogoutDialogOpen(false)}
+							disabled={isLoggingOut}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleSignOut}
+							disabled={isLoggingOut}
+						>
+							{isLoggingOut ? "Logging out..." : "Logout User"}
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			<div className="flex-1 space-y-6 p-6">
 				{/* Stats Cards */}
@@ -256,7 +337,7 @@ export default function UsersPage() {
 											<Button
 												variant="outline"
 												size="sm"
-												onClick={() => handleSignOut(user.id)}
+												onClick={() => openLogoutDialog(user)}
 											>
 												<LogOut className="mr-2 h-4 w-4" />
 												Sign Out
