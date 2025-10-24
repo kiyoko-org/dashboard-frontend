@@ -62,16 +62,6 @@ export default function DashboardPage() {
     return <Badge variant={variants[status] || "default"}>{status}</Badge>
   }
 
-  const getSeverityBadge = (severity: DatabaseReport["priority"] | string) => {
-    const variants: Record<string, "default" | "warning" | "destructive"> = {
-      low: "default",
-      medium: "warning",
-      high: "warning",
-      critical: "destructive",
-    }
-    return <Badge variant={variants[severity] || "default"}>{severity}</Badge>
-  }
-
   // Show the most recent 5 reports for the "Recent Incidents" list
   const recent = reports?.slice(0, 5) ?? []
 
@@ -186,7 +176,6 @@ export default function DashboardPage() {
                 const title = report.incident_title || "Untitled incident"
                 const category = report.incident_category || "Unknown"
                 const time = report.incident_time || new Date(report.created_at).toLocaleString()
-                const severity = report.priority || "low"
                 const status = report.status || "pending"
 
                 return (
@@ -213,7 +202,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {getSeverityBadge(severity)}
                       {getStatusBadge(status)}
                     </div>
                   </div>
