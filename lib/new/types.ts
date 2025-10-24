@@ -33,6 +33,7 @@ export interface Database {
 					priority: 'low' | 'medium' | 'high' | 'critical'
 					assigned_to: string | null
 					police_notes: string | null
+					arrived_at: string | null
 					created_at: string
 					updated_at: string
 				}
@@ -62,6 +63,7 @@ export interface Database {
 					priority?: 'low' | 'medium' | 'high' | 'critical'
 					assigned_to?: string | null
 					police_notes?: string | null
+					arrived_at?: string | null
 					created_at?: string
 					updated_at?: string
 				}
@@ -91,6 +93,7 @@ export interface Database {
 					priority?: 'low' | 'medium' | 'high' | 'critical'
 					assigned_to?: string | null
 					police_notes?: string | null
+					arrived_at?: string | null
 					created_at?: string
 					updated_at?: string
 				}
@@ -207,4 +210,3 @@ export type ReportUpdate = Database['public']['Tables']['reports']['Update']
 export type DatabaseEmergency = Database['public']['Tables']['emergency_calls']['Row']
 export type EmergencyInsert = Database['public']['Tables']['emergency_calls']['Insert']
 export type EmergencyUpdate = Database['public']['Tables']['emergency_calls']['Update']
-

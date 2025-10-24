@@ -19,10 +19,25 @@ export default function DashboardPage() {
 
   // Calculate resolution rate (excluding cancelled cases)
   const resolvedCount = reports?.filter((r) => r.status === "resolved").length ?? 0
-  const unresolvedCount = reports?.filter((r) => r.status === "unresolved").length ?? 0
   const cancelledCount = reports?.filter((r) => r.status === "cancelled").length ?? 0
   const resolvableIncidents = totalIncidents - cancelledCount
   const resolutionRate = resolvableIncidents > 0 ? ((resolvedCount / resolvableIncidents) * 100).toFixed(1) : "0.0"
+
+  // Calculate average response time in minutes using arrived_at timestamps
+  const responseTimes = reports
+    ?.map((report) => {
+      if (!report.arrived_at) return null
+      const created = new Date(report.created_at).getTime()
+      const arrived = new Date(report.arrived_at).getTime()
+      if (Number.isNaN(created) || Number.isNaN(arrived)) return null
+      const diffMs = arrived - created
+      if (diffMs < 0) return null
+      return diffMs / 60000 // minutes
+    })
+    .filter((value): value is number => value !== null) ?? []
+  const averageResponseTime = responseTimes.length > 0
+    ? responseTimes.reduce((sum, minutes) => sum + minutes, 0) / responseTimes.length
+    : null
 
   // Calculate incidents change from last month
   const now = new Date()
@@ -129,7 +144,9 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0 min</div>
+              <div className="text-2xl font-bold">
+                {averageResponseTime !== null ? `${averageResponseTime.toFixed(1)} min` : "N/A"}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Average response time
               </p>
