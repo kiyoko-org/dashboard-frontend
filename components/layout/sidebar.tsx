@@ -9,7 +9,7 @@ import {
   LayoutDashboard,
   AlertTriangle,
   Users,
-  Settings,
+  Bell,
   Database,
   Phone,
   LogOut,
@@ -27,6 +27,11 @@ const navigation = [
     name: "Incidents",
     href: "/dashboard/incidents",
     icon: AlertTriangle,
+  },
+  {
+    name: "Emergencies",
+    href: "/dashboard/emergency",
+    icon: Bell,
   },
   {
     name: "Users",
@@ -47,11 +52,6 @@ const navigation = [
     name: "Database",
     href: "/dashboard/database",
     icon: Database,
-  },
-  {
-    name: "Settings",
-    href: "/dashboard/settings",
-    icon: Settings,
   },
 ]
 
@@ -137,4 +137,3 @@ export function Sidebar() {
     </>
   )
 }
-
