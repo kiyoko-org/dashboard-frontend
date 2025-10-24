@@ -52,14 +52,14 @@ export default function UsersPage() {
 	const [roleFilter, setRoleFilter] = useState("all")
 	const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
 	const [userToLogout, setUserToLogout] = useState<UserData | null>(null)
-	const [isLoggingOut, setIsLoggingOut] = useState(false)
+	const [signingOutUserId, setSigningOutUserId] = useState<string | null>(null)
 
 	const { profiles, loading, error } = useProfiles()
 
 	const handleSignOut = async () => {
 		if (!userToLogout) return
 
-		setIsLoggingOut(true)
+		setSigningOutUserId(userToLogout.id)
 		try {
 			const client = getDispatchClient()
 			const { data, error } = await client.supabaseClient.rpc('signout_user', { user_uuid: userToLogout.id })
@@ -70,7 +70,7 @@ export default function UsersPage() {
 				alert("User signed out successfully")
 			}
 		} finally {
-			setIsLoggingOut(false)
+			setSigningOutUserId(null)
 			setLogoutDialogOpen(false)
 			setUserToLogout(null)
 		}
@@ -153,7 +153,7 @@ export default function UsersPage() {
 				}
 			}}>
 				<DialogContent className="sm:max-w-md">
-					{isLoggingOut && (
+					{signingOutUserId === userToLogout?.id && (
 						<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
 							<div className="flex flex-col items-center gap-2">
 								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -188,16 +188,16 @@ export default function UsersPage() {
 						<Button
 							variant="outline"
 							onClick={() => setLogoutDialogOpen(false)}
-							disabled={isLoggingOut}
+							disabled={!!signingOutUserId}
 						>
 							Cancel
 						</Button>
 						<Button
 							variant="destructive"
 							onClick={handleSignOut}
-							disabled={isLoggingOut}
+							disabled={!!signingOutUserId}
 						>
-							{isLoggingOut ? "Logging out..." : "Logout User"}
+							{signingOutUserId ? "Logging out..." : "Logout User"}
 						</Button>
 					</div>
 				</DialogContent>

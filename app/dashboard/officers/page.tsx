@@ -726,7 +726,7 @@ export default function OfficersPage() {
 				}
 			}}>
 				<DialogContent className="sm:max-w-md">
-					{signingOutOfficerId && (
+					{signingOutOfficerId === officerToLogout?.id && (
 						<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
 							<div className="flex flex-col items-center gap-2">
 								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
