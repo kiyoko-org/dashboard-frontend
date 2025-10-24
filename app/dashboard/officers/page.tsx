@@ -50,18 +50,48 @@ const officerSchema = z.object({
 	}).min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
 	rank: z.string().min(1, "Rank is required"),
 	email: z.string().email("Invalid email address"),
-	first_name: z.string().min(1, "First name is required"),
-	middle_name: z.string(),
-	last_name: z.string().min(1, "Last name is required"),
+	first_name: z
+		.string()
+		.trim()
+		.min(2, "First name must be at least 2 characters")
+		.max(20, "First name must be at most 20 characters"),
+	middle_name: z
+		.string()
+		.trim()
+		.max(20, "Middle name must be at most 20 characters")
+		.refine(
+			(value) => value.length === 0 || value.length >= 2,
+			"Middle name must be at least 2 characters"
+		),
+	last_name: z
+		.string()
+		.trim()
+		.min(2, "Last name must be at least 2 characters")
+		.max(20, "Last name must be at most 20 characters"),
 }) as any
 
 const editOfficerSchema = z.object({
 	badge_number: z.string().regex(/^\d+$/, {
 		message: 'String must contain only digits (0-9).',
 	}).min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
-	first_name: z.string().min(1, "First name is required"),
-	middle_name: z.string(),
-	last_name: z.string().min(1, "Last name is required"),
+	first_name: z
+		.string()
+		.trim()
+		.min(2, "First name must be at least 2 characters")
+		.max(20, "First name must be at most 20 characters"),
+	middle_name: z
+		.string()
+		.trim()
+		.max(20, "Middle name must be at most 20 characters")
+		.refine(
+			(value) => value.length === 0 || value.length >= 2,
+			"Middle name must be at least 2 characters"
+		),
+	last_name: z
+		.string()
+		.trim()
+		.min(2, "Last name must be at least 2 characters")
+		.max(20, "Last name must be at most 20 characters"),
 }) as any
 
 export default function OfficersPage() {
