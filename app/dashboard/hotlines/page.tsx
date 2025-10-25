@@ -36,8 +36,7 @@ import { z } from "zod"
 const hotlineSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	description: z.string().optional(),
-	phone_number: z.string().regex(/^\d+$/, "Phone number must contain only digits").min(3, "Phone number must be at least 3 digits").max(11, "Phone number must be at most 11 digits"),
-	available: z.boolean()
+	phone_number: z.string().regex(/^\d+$/, "Phone number must contain only digits").min(3, "Phone number must be at least 3 digits").max(11, "Phone number must be at most 11 digits")
 })
 
 export default function HotlinesPage() {
@@ -55,8 +54,7 @@ export default function HotlinesPage() {
 		defaultValues: {
 			name: "",
 			description: undefined as string | undefined,
-			phone_number: "",
-			available: true
+			phone_number: ""
 		},
 		validators: {
 			onSubmit: hotlineSchema
@@ -74,8 +72,7 @@ export default function HotlinesPage() {
 		defaultValues: {
 			name: "",
 			description: undefined as string | undefined,
-			phone_number: "",
-			available: true
+			phone_number: ""
 		},
 		validators: {
 			onSubmit: hotlineSchema
@@ -102,7 +99,6 @@ export default function HotlinesPage() {
 						editForm.setFieldValue('name', hotline.name)
 						editForm.setFieldValue('description', hotline.description ?? undefined)
 						editForm.setFieldValue('phone_number', hotline.phone_number)
-						editForm.setFieldValue('available', hotline.available ?? true)
 					}
 				}
 			}}>
@@ -191,25 +187,6 @@ export default function HotlinesPage() {
 												autoComplete="off"
 											/>
 											{isInvalid && <FieldError errors={field.state.meta.errors} />}
-										</Field>
-									)
-								}}
-							/>
-
-							<editForm.Field
-								name="available"
-								children={(field) => {
-									return (
-										<Field>
-											<div className="flex items-center gap-2">
-												<Switch
-													id={field.name}
-													name={field.name}
-													checked={field.state.value}
-													onCheckedChange={(checked) => field.handleChange(checked)}
-												/>
-												<FieldLabel htmlFor={field.name}>Available</FieldLabel>
-											</div>
 										</Field>
 									)
 								}}
@@ -313,25 +290,6 @@ export default function HotlinesPage() {
 								}}
 							/>
 
-							<addForm.Field
-								name="available"
-								children={(field) => {
-									return (
-										<Field>
-											<div className="flex items-center gap-2">
-												<Switch
-													id={field.name}
-													name={field.name}
-													checked={field.state.value}
-													onCheckedChange={(checked) => field.handleChange(checked)}
-												/>
-												<FieldLabel htmlFor={field.name}>Available</FieldLabel>
-											</div>
-										</Field>
-									)
-								}}
-							/>
-
 							<Button type="submit">Submit</Button>
 						</FieldGroup>
 					</form>
@@ -377,7 +335,6 @@ export default function HotlinesPage() {
 								<TableHead className="w-[100px]">Name</TableHead>
 								<TableHead>Description</TableHead>
 								<TableHead>Number</TableHead>
-								<TableHead>Available</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -386,7 +343,6 @@ export default function HotlinesPage() {
 									<TableCell className="font-medium">{hotline.name}</TableCell>
 									<TableCell>{hotline.description}</TableCell>
 									<TableCell>{hotline.phone_number}</TableCell>
-									<TableCell>{hotline.available ? "Yes" : "No"}</TableCell>
 									<TableCell>
 										<DropdownMenu>
 											<DropdownMenuTrigger asChild>
@@ -403,7 +359,6 @@ export default function HotlinesPage() {
 														editForm.setFieldValue('name', h.name)
 														editForm.setFieldValue('description', h.description ?? undefined)
 														editForm.setFieldValue('phone_number', h.phone_number)
-														editForm.setFieldValue('available', h.available ?? true)
 													}
 													setEditingHotline(hotline.id)
 												}}>
