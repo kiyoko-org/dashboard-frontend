@@ -16,6 +16,15 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react"
+import { useState } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 const navigation = [
   {
@@ -60,10 +69,18 @@ export function Sidebar() {
   const router = useRouter()
   const { signOut, user } = useAuthContext()
   const { isOpen, closeSidebar } = useSidebar()
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleSignOut = async () => {
-    await signOut()
-    router.push("/login")
+    setIsLoggingOut(true)
+    try {
+      await signOut()
+      router.push("/login")
+    } finally {
+      setIsLoggingOut(false)
+      setLogoutDialogOpen(false)
+    }
   }
 
   return (
@@ -126,7 +143,7 @@ export function Sidebar() {
           </div>
         )}
         <button
-          onClick={handleSignOut}
+          onClick={() => setLogoutDialogOpen(true)}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
         >
           <LogOut className="h-5 w-5" />
@@ -134,6 +151,45 @@ export function Sidebar() {
         </button>
       </div>
       </div>
+
+      {/* Logout confirmation dialog */}
+      <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          {isLoggingOut && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div className="text-sm text-muted-foreground">
+                  Logging out...
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogHeader>
+            <DialogTitle>Confirm Logout</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to log out? You will need to sign in again to access your account.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setLogoutDialogOpen(false)}
+              disabled={isLoggingOut}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleSignOut}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? "Logging out..." : "Logout"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
