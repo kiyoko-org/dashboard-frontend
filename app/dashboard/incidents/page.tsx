@@ -456,6 +456,46 @@ export default function IncidentsPage() {
 		return new Date(y, (m || 1) - 1, d || 1).getTime()
 	}
 
+	// Helper to format duration between two timestamps
+	const formatDuration = (startMs: number, endMs: number): string => {
+		const diffMs = endMs - startMs
+		if (diffMs < 0) return "0 sec"
+
+		const seconds = Math.floor(diffMs / 1000)
+		const minutes = Math.floor(seconds / 60)
+		const hours = Math.floor(minutes / 60)
+		const days = Math.floor(hours / 24)
+
+		if (days > 0) {
+			const remainingHours = hours % 24
+			return `${days}d ${remainingHours}h`
+		} else if (hours > 0) {
+			const remainingMinutes = minutes % 60
+			return `${hours}h ${remainingMinutes}m`
+		} else if (minutes > 0) {
+			const remainingSeconds = seconds % 60
+			return `${minutes}m ${remainingSeconds}s`
+		} else {
+			return `${seconds}s`
+		}
+	}
+
+	// Helper to compute response time between report creation and arrival
+	const getResponseTime = (report: Report): string | null => {
+		if (!report.created_at || !report.arrived_at) return null
+
+		try {
+			const createdMs = new Date(report.created_at).getTime()
+			const arrivedMs = new Date(report.arrived_at).getTime()
+
+			if (isNaN(createdMs) || isNaN(arrivedMs)) return null
+
+			return formatDuration(createdMs, arrivedMs)
+		} catch {
+			return null
+		}
+	}
+
 	const filteredIncidents = visibleReports.filter((report) => {
 		const q = (searchQuery ?? '').toLowerCase()
 		const title = String(report.incident_title ?? '').toLowerCase()
@@ -1470,6 +1510,30 @@ export default function IncidentsPage() {
 										</div>
 									</div>
 								</div>
+
+								{/* Arrived Date */}
+								{selectedReportForDetail.arrived_at && (
+									<div className="mt-3">
+										<div className="text-sm text-muted-foreground mb-1">Arrived</div>
+										<div className="font-medium flex items-center gap-2">
+											<Calendar className="h-4 w-4" />
+											{(() => {
+												try {
+													return new Date(selectedReportForDetail.arrived_at).toLocaleString()
+												} catch {
+													return selectedReportForDetail.arrived_at
+												}
+											})()}
+										</div>
+										<div className="text-sm text-muted-foreground mb-1 mt-2">Response Time</div>
+										<div className="font-medium">
+											{(() => {
+												const responseTime = getResponseTime(selectedReportForDetail)
+												return responseTime || 'N/A'
+											})()}
+										</div>
+									</div>
+								)}
 
 								{/* Location */}
 								<div>
