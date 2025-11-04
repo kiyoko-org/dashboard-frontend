@@ -1711,11 +1711,9 @@ export default function IncidentsPage() {
 								</div>
 
 								{/* Witness List */}
-								<div>
-									<div className="text-lg font-semibold mb-3">Witnesses ({witnessCountDisplay})</div>
-									{witnessEntries.length === 0 ? (
-										<div className="text-sm text-muted-foreground">No witnesses recorded.</div>
-									) : (
+								{witnessEntries.length > 0 && (
+									<div>
+										<div className="text-lg font-semibold mb-3">Witnesses ({witnessCountDisplay})</div>
 										<div className="space-y-3">
 											{witnessEntries.map((witness) => (
 												<div key={witness.userId} className="border rounded-lg p-3">
@@ -1738,8 +1736,8 @@ export default function IncidentsPage() {
 												</div>
 											))}
 										</div>
-									)}
-								</div>
+									</div>
+								)}
 
 								{/* Suspect & Witness Information */}
 								{(selectedReportForDetail.suspect_description || selectedReportForDetail.witness_contact_info) && (
