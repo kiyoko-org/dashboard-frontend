@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,18 +40,32 @@ import {
 	Video,
 	FileImage,
 } from "lucide-react"
-import { useRealtimeReports, getDispatchClient, useCategories, useOfficers } from "dispatch-lib"
+import { useRealtimeReports, getDispatchClient, useCategories, useOfficers, useProfiles } from "dispatch-lib"
+import type { Witness } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import "jspdf/dist/polyfills.es"
 
 type Report = Database["public"]["Tables"]["reports"]["Row"]
+type WitnessDisplay = {
+	userId: string
+	name: string
+	email: string | null
+	statement: string | null
+}
+
+const isWitnessRecord = (value: unknown): value is Witness => {
+	if (!value || typeof value !== "object") return false
+	const candidate = value as { user_id?: unknown }
+	return typeof candidate.user_id === "string" && candidate.user_id.length > 0
+}
 
 export default function IncidentsPage() {
 	const { reports, loading, error, isConnected } = useRealtimeReports()
 	const { categories, loading: categoriesLoading } = useCategories()
 	const { officers, loading: officersLoading } = useOfficers()
+	const { profiles } = useProfiles()
 	const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set())
 	const [includeArchived, setIncludeArchived] = useState(false)
 	const [searchQuery, setSearchQuery] = useState("")
@@ -178,6 +192,8 @@ export default function IncidentsPage() {
 	// Detail view dialog state
 	const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
 	const [selectedReportForDetail, setSelectedReportForDetail] = useState<Report | null>(null)
+	const [isWitnessDialogOpen, setIsWitnessDialogOpen] = useState(false)
+	const [selectedWitnessForStatement, setSelectedWitnessForStatement] = useState<WitnessDisplay | null>(null)
 	const [downloadingAttachments, setDownloadingAttachments] = useState<Set<number>>(new Set())
 	const [downloadProgress, setDownloadProgress] = useState<Map<number, number>>(new Map())
 	const [viewerOpen, setViewerOpen] = useState(false)
@@ -244,6 +260,46 @@ export default function IncidentsPage() {
 			})()
 		return () => { cancelled = true }
 	}, [isDetailDialogOpen, selectedReportForDetail])
+
+	useEffect(() => {
+		if (!isDetailDialogOpen) {
+			setIsWitnessDialogOpen(false)
+			setSelectedWitnessForStatement(null)
+		}
+	}, [isDetailDialogOpen])
+
+	const witnessEntries = useMemo<WitnessDisplay[]>(() => {
+		if (!selectedReportForDetail || !Array.isArray(selectedReportForDetail.witnesses)) {
+			return []
+		}
+
+		return selectedReportForDetail.witnesses
+			.map((entry) => {
+				if (!isWitnessRecord(entry)) return null
+
+				const witnessData = entry
+				const profile = profiles?.find((profile) => profile.id === witnessData.user_id)
+				const nameParts = profile ? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean) : []
+				const fallbackName = witnessData.user_id.length > 8
+					? `Witness ${witnessData.user_id.slice(0, 8)}…`
+					: witnessData.user_id
+				const name = nameParts.length > 0 ? nameParts.join(" ") : fallbackName
+				const email = profile?.email ?? null
+				const statement = typeof witnessData.statement === "string" ? witnessData.statement : null
+
+				return {
+					userId: witnessData.user_id,
+					name,
+					email,
+					statement,
+				}
+			})
+			.filter((entry): entry is WitnessDisplay => entry !== null)
+	}, [profiles, selectedReportForDetail])
+
+	const witnessCountDisplay = witnessEntries.length > 0
+		? String(witnessEntries.length)
+		: (selectedReportForDetail?.number_of_witnesses ?? "0")
 
 
 	// Utility functions for file handling
@@ -1443,6 +1499,51 @@ export default function IncidentsPage() {
 				</DialogPortal>
 			</Dialog>
 
+			{/* Witness Statement Dialog */}
+			<Dialog open={isWitnessDialogOpen} onOpenChange={(open) => {
+				setIsWitnessDialogOpen(open)
+				if (!open) {
+					setSelectedWitnessForStatement(null)
+				}
+			}}>
+				<DialogPortal>
+					<DialogOverlay />
+					<DialogContent className="sm:max-w-lg">
+						<DialogHeader>
+							<DialogTitle>Witness Statement</DialogTitle>
+						</DialogHeader>
+						{selectedWitnessForStatement ? (
+							<div className="space-y-4">
+								<div>
+									<div className="text-sm text-muted-foreground mb-1">Witness</div>
+									<div className="font-medium">{selectedWitnessForStatement.name}</div>
+									<div className="text-sm text-muted-foreground">{selectedWitnessForStatement.email ?? "Email not available"}</div>
+								</div>
+								<div>
+									<div className="text-sm text-muted-foreground mb-1">Statement</div>
+									<div className="bg-muted p-3 rounded-lg whitespace-pre-wrap">
+										{selectedWitnessForStatement.statement || "No statement provided."}
+									</div>
+								</div>
+							</div>
+						) : (
+							<div className="text-sm text-muted-foreground">No statement available.</div>
+						)}
+						<DialogFooter>
+							<Button
+								variant="outline"
+								onClick={() => {
+									setIsWitnessDialogOpen(false)
+									setSelectedWitnessForStatement(null)
+								}}
+							>
+								Close
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</DialogPortal>
+			</Dialog>
+
 			{/* Detail View Dialog */}
 			<Dialog open={isDetailDialogOpen} onOpenChange={(open) => {
 				if (!open) {
@@ -1595,12 +1696,10 @@ export default function IncidentsPage() {
 											<div className="font-medium">{selectedReportForDetail.who_was_involved}</div>
 										</div>
 									)}
-									{selectedReportForDetail.number_of_witnesses && (
-										<div>
-											<div className="text-sm text-muted-foreground mb-1">Number of Witnesses</div>
-											<div className="font-medium">{selectedReportForDetail.number_of_witnesses}</div>
-										</div>
-									)}
+									<div>
+										<div className="text-sm text-muted-foreground mb-1">Number of Witnesses</div>
+										<div className="font-medium">{witnessCountDisplay}</div>
+									</div>
 									{selectedReportForDetail.injuries_reported && (
 										<div>
 											<div className="text-sm text-muted-foreground mb-1">Injuries Reported</div>
@@ -1611,6 +1710,37 @@ export default function IncidentsPage() {
 										<div>
 											<div className="text-sm text-muted-foreground mb-1">Property Damage</div>
 											<div className="font-medium">{selectedReportForDetail.property_damage}</div>
+										</div>
+									)}
+								</div>
+
+								{/* Witness List */}
+								<div>
+									<div className="text-lg font-semibold mb-3">Witnesses ({witnessCountDisplay})</div>
+									{witnessEntries.length === 0 ? (
+										<div className="text-sm text-muted-foreground">No witnesses recorded.</div>
+									) : (
+										<div className="space-y-3">
+											{witnessEntries.map((witness) => (
+												<div key={witness.userId} className="border rounded-lg p-3">
+													<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+														<div>
+															<div className="font-medium">{witness.name}</div>
+															<div className="text-sm text-muted-foreground">{witness.email ?? "Email not available"}</div>
+														</div>
+														<Button
+															variant="outline"
+															size="sm"
+															onClick={() => {
+																setSelectedWitnessForStatement(witness)
+																setIsWitnessDialogOpen(true)
+															}}
+														>
+															View Statement
+														</Button>
+													</div>
+												</div>
+											))}
 										</div>
 									)}
 								</div>
