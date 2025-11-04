@@ -1696,10 +1696,6 @@ export default function IncidentsPage() {
 											<div className="font-medium">{selectedReportForDetail.who_was_involved}</div>
 										</div>
 									)}
-									<div>
-										<div className="text-sm text-muted-foreground mb-1">Number of Witnesses</div>
-										<div className="font-medium">{witnessCountDisplay}</div>
-									</div>
 									{selectedReportForDetail.injuries_reported && (
 										<div>
 											<div className="text-sm text-muted-foreground mb-1">Injuries Reported</div>
