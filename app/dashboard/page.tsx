@@ -8,12 +8,15 @@ import {
   Clock,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { useReports } from "@/lib/new/useReports"
-import type { DatabaseReport } from "@/lib/new/types"
+import { useRealtimeReports, useCategories } from "dispatch-lib"
+import type { Database } from "dispatch-lib/database.types"
+
+type Report = Database["public"]["Tables"]["reports"]["Row"]
 
 export default function DashboardPage() {
-  // Use the reports hook
-  const { reports, loading, error } = useReports()
+  // Use the realtime reports hook
+  const { reports = [], loading, error } = useRealtimeReports()
+  const { categories } = useCategories()
 
   const totalIncidents = reports?.length ?? 0
 
@@ -50,7 +53,7 @@ export default function DashboardPage() {
   const incidentsChange = change === 0 ? "0%" : `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
   const incidentsUp = change > 0
 
-  const getStatusBadge = (status: DatabaseReport["status"] | string) => {
+  const getStatusBadge = (status: Report["status"] | string) => {
     const variants: Record<string, "default" | "warning" | "success" | "destructive"> = {
       pending: "warning",
       assigned: "default",
@@ -60,6 +63,13 @@ export default function DashboardPage() {
       cancelled: "destructive",
     }
     return <Badge variant={variants[status] || "default"}>{status}</Badge>
+  }
+
+  // Helper to get category name from category_id using useCategories()
+  const getCategoryName = (categoryId?: number | null) => {
+    if (!categoryId || !categories) return "Unknown Category"
+    const cat = categories.find(c => c.id === categoryId)
+    return cat?.name || "Unknown Category"
   }
 
   // Show the most recent 5 reports for the "Recent Incidents" list
@@ -174,7 +184,7 @@ export default function DashboardPage() {
 
               {recent.map((report) => {
                 const title = report.incident_title || "Untitled incident"
-                const category = report.incident_category || "Unknown"
+                const category = getCategoryName(report.category_id)
                 const time = report.incident_time || new Date(report.created_at).toLocaleString()
                 const status = report.status || "pending"
 
