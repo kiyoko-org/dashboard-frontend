@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -31,6 +32,7 @@ import {
 	ArrowUp,
 	ArrowDown,
 	UserPlus,
+	GitMerge,
 	Check,
 	X,
 	ImageIcon,
@@ -77,6 +79,179 @@ export default function IncidentsPage() {
 	const [startDate, setStartDate] = useState("")
 	const [endDate, setEndDate] = useState("")
 	const [isExporting, setIsExporting] = useState(false)
+	const [selectedReportIdsForMerge, setSelectedReportIdsForMerge] = useState<Set<number>>(new Set())
+	const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false)
+	const [mergePrimaryId, setMergePrimaryId] = useState<number | null>(null)
+	const [mergeError, setMergeError] = useState<string | null>(null)
+	const [isMerging, setIsMerging] = useState(false)
+
+	const isReportArchived = useCallback((report: Report) => {
+		const isArchivedFlag = Boolean(report.is_archived)
+		const isArchivedStatus = report.status === "archived"
+		const isLocallyArchived = archivedIds.has(report.id.toString())
+		return isArchivedFlag || isArchivedStatus || isLocallyArchived
+	}, [archivedIds])
+
+	const selectedReportsForMerge = useMemo<Report[]>(() => {
+		if (selectedReportIdsForMerge.size === 0) return []
+
+		return reports.filter((report) => selectedReportIdsForMerge.has(report.id))
+	}, [reports, selectedReportIdsForMerge])
+
+	const canMergeSelectedReports = selectedReportIdsForMerge.size === 2
+	const mergeSelectionLimitReached = selectedReportIdsForMerge.size >= 2
+	const mergeSelectionCount = selectedReportIdsForMerge.size
+	const mergeButtonLabel = canMergeSelectedReports ? "Merge Selected" : `Merge Selected (${mergeSelectionCount}/2)`
+
+	const toggleMergeSelection = (report: Report, forceSelect?: boolean) => {
+		if (isReportArchived(report)) return
+
+		setSelectedReportIdsForMerge((prev) => {
+			const next = new Set(prev)
+			const isCurrentlySelected = next.has(report.id)
+			const shouldSelect = forceSelect ?? !isCurrentlySelected
+
+			if (shouldSelect) {
+				if (isCurrentlySelected || next.size >= 2) {
+					return prev
+				}
+				next.add(report.id)
+			} else {
+				if (!isCurrentlySelected) {
+					return prev
+				}
+				next.delete(report.id)
+			}
+
+			return next
+		})
+	}
+
+	const clearMergeSelection = () => {
+		setSelectedReportIdsForMerge(new Set())
+		setMergePrimaryId(null)
+		setMergeError(null)
+	}
+
+	const openMergeDialog = () => {
+		if (!canMergeSelectedReports) return
+		setMergePrimaryId(selectedReportsForMerge[0]?.id ?? null)
+		setMergeError(null)
+		setIsMergeDialogOpen(true)
+	}
+
+	const handleConfirmMerge = async () => {
+		if (!mergePrimaryId || selectedReportsForMerge.length !== 2) {
+			setMergeError("Select two reports before merging.")
+			return
+		}
+
+		const primaryReport = selectedReportsForMerge.find((report) => report.id === mergePrimaryId)
+		const secondaryReport = selectedReportsForMerge.find((report) => report.id !== mergePrimaryId)
+
+		if (!primaryReport || !secondaryReport) {
+			setMergeError("Could not determine which reports to merge.")
+			return
+		}
+
+		setIsMerging(true)
+		setMergeError(null)
+
+		try {
+			const client = getDispatchClient()
+
+			const primaryAttachments = Array.isArray(primaryReport.attachments) ? primaryReport.attachments : []
+			const secondaryAttachments = Array.isArray(secondaryReport.attachments) ? secondaryReport.attachments : []
+			const mergedAttachments = Array.from(new Set([...primaryAttachments, ...secondaryAttachments]))
+
+			if (mergedAttachments.length !== primaryAttachments.length) {
+				const updateResult = await client.updateReport(primaryReport.id, { attachments: mergedAttachments })
+				if (updateResult.error) {
+					throw new Error(updateResult.error.message || "Failed to merge attachments.")
+				}
+			}
+
+			if (secondaryReport.reporter_id) {
+				const witnessHelper =
+					typeof (client as any).addToWitness === "function"
+						? (client as any).addToWitness.bind(client)
+						: client.addWitnessToReport?.bind(client)
+
+				if (!witnessHelper) {
+					throw new Error("Witness helper not available.")
+				}
+
+				const witnessResult = await witnessHelper(
+					primaryReport.id,
+					secondaryReport.reporter_id,
+					secondaryReport.description ?? null,
+				)
+
+				if (witnessResult?.error) {
+					throw new Error(witnessResult.error.message || "Failed to add witness.")
+				}
+			}
+
+			const archiveResult = await client.archiveReport(secondaryReport.id)
+			if (archiveResult.error) {
+				throw new Error(archiveResult.error.message || "Failed to archive merged report.")
+			}
+
+			setArchivedIds((prev) => {
+				const next = new Set(prev)
+				next.add(secondaryReport.id.toString())
+				return next
+			})
+
+			clearMergeSelection()
+			setIsMergeDialogOpen(false)
+		} catch (error) {
+			console.error("Failed to merge reports:", error)
+			setMergeError(error instanceof Error ? error.message : "Failed to merge reports.")
+		} finally {
+			setIsMerging(false)
+		}
+	}
+
+	useEffect(() => {
+		setSelectedReportIdsForMerge((prev) => {
+			if (prev.size === 0) return prev
+
+			let changed = false
+			const next = new Set<number>()
+
+			prev.forEach((id) => {
+				const report = reports.find((candidate) => candidate.id === id)
+				if (report && !isReportArchived(report)) {
+					next.add(id)
+				} else {
+					changed = true
+				}
+			})
+
+			return changed ? next : prev
+		})
+	}, [reports, isReportArchived])
+
+	useEffect(() => {
+		if (!canMergeSelectedReports) {
+			setMergePrimaryId(null)
+			return
+		}
+
+		if (mergePrimaryId && selectedReportIdsForMerge.has(mergePrimaryId)) {
+			return
+		}
+
+		const [firstId] = Array.from(selectedReportIdsForMerge)
+		setMergePrimaryId(firstId ?? null)
+	}, [canMergeSelectedReports, mergePrimaryId, selectedReportIdsForMerge])
+
+	useEffect(() => {
+		if (!canMergeSelectedReports && !isMerging && isMergeDialogOpen) {
+			setIsMergeDialogOpen(false)
+		}
+	}, [canMergeSelectedReports, isMerging, isMergeDialogOpen])
 
 	const generateReportTitle = () => {
 		let title = "Incident Report - "
@@ -497,13 +672,9 @@ export default function IncidentsPage() {
 	}
 
 
-	const visibleReports = reports.filter((r) => {
-		const isArchivedFlag = Boolean(r.is_archived)
-		const isArchivedStatus = r.status === 'archived'
-		const isLocallyArchived = archivedIds.has(r.id.toString())
-		const isArchived = isArchivedFlag || isArchivedStatus || isLocallyArchived
-		return includeArchived ? true : !isArchived
-	})
+	const visibleReports = reports.filter((report) =>
+		includeArchived ? true : !isReportArchived(report),
+	)
 
 	// Helpers to parse YYYY-MM-DD as LOCAL dates (avoid UTC shift)
 	const isIsoDateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
@@ -915,6 +1086,33 @@ export default function IncidentsPage() {
 										<span className="text-sm text-muted-foreground">Show archived</span>
 									</div>
 
+									{/* Merge Actions */}
+									<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+										<Button
+											onClick={openMergeDialog}
+											disabled={!canMergeSelectedReports}
+											className="w-full sm:w-auto"
+										>
+											<GitMerge className="mr-2 h-4 w-4" />
+											{mergeButtonLabel}
+										</Button>
+										{mergeSelectionCount > 0 && (
+											<div className="flex items-center gap-2">
+												<Badge variant="secondary" className="px-3 py-1">
+													{mergeSelectionCount}/2 selected
+												</Badge>
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={clearMergeSelection}
+													className="w-full sm:w-auto"
+												>
+													Clear
+												</Button>
+											</div>
+										)}
+									</div>
+
 									{/* Export Button */}
 									<Button
 										variant="outline"
@@ -941,6 +1139,9 @@ export default function IncidentsPage() {
 								<Table>
 									<TableHeader>
 										<TableRow>
+											<TableHead className="w-[60px] text-center">
+												Merge
+											</TableHead>
 											<TableHead
 												className="cursor-pointer hover:bg-muted/50 select-none"
 												onClick={() => handleSort("id")}
@@ -992,12 +1193,21 @@ export default function IncidentsPage() {
 									</TableHeader>
 									<TableBody>
 										{sortedIncidents.map((report) => {
-											const isArchivedFlag = Boolean(report.is_archived)
-											const isArchivedStatus = report.status === 'archived'
-											const isLocallyArchived = archivedIds.has(report.id.toString())
-											const isArchived = isArchivedFlag || isArchivedStatus || isLocallyArchived
+											const isArchived = isReportArchived(report)
+											const isSelected = selectedReportIdsForMerge.has(report.id)
+											const rowClass = `${isArchived ? "opacity-60" : ""} ${isSelected ? "bg-muted/40" : ""}`.trim() || undefined
 											return (
-												<TableRow key={report.id} className={isArchived ? "opacity-60" : undefined}>
+												<TableRow key={report.id} className={rowClass}>
+													<TableCell className="w-[60px]">
+														<div className="flex justify-center">
+															<Checkbox
+																checked={isSelected}
+																onCheckedChange={(checked) => toggleMergeSelection(report, checked === true)}
+																disabled={isArchived || (!isSelected && mergeSelectionLimitReached)}
+																aria-label={`Select report ${report.id} for merging`}
+															/>
+														</div>
+													</TableCell>
 													<TableCell className="font-medium">
 														#{String(report.id).slice(-8)}
 													</TableCell>
@@ -1493,6 +1703,108 @@ export default function IncidentsPage() {
 								disabled={isAssigning || selectedOfficers.size === 0}
 							>
 								{isAssigning ? "Assigning..." : `Assign ${selectedOfficers.size} Officer${selectedOfficers.size > 1 ? 's' : ''}`}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</DialogPortal>
+			</Dialog>
+
+			{/* Merge Reports Dialog */}
+			<Dialog
+				open={isMergeDialogOpen}
+				onOpenChange={(open) => {
+					if (!open && isMerging) return
+					setIsMergeDialogOpen(open)
+					if (!open) {
+						setMergeError(null)
+						setMergePrimaryId(null)
+					}
+				}}
+			>
+				<DialogPortal>
+					<DialogOverlay />
+					<DialogContent className="sm:max-w-2xl">
+						<DialogHeader>
+							<DialogTitle>Merge Reports</DialogTitle>
+						</DialogHeader>
+						{selectedReportsForMerge.length !== 2 ? (
+							<div className="text-sm text-muted-foreground">
+								Select exactly two reports to merge.
+							</div>
+						) : (
+							<div className="space-y-4">
+								<p className="text-sm text-muted-foreground">
+									Choose the report to keep. The other report will be archived, its reporter added as a witness, and its attachments copied over.
+								</p>
+								<div className="grid gap-3 md:grid-cols-2">
+									{selectedReportsForMerge.map((report) => {
+										const isPrimary = mergePrimaryId === report.id
+										const attachmentsCount = Array.isArray(report.attachments) ? report.attachments.length : 0
+										return (
+											<button
+												type="button"
+												key={report.id}
+												onClick={() => setMergePrimaryId(report.id)}
+												className={`rounded-md border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${isPrimary ? "border-primary bg-primary/5 ring-2 ring-primary/40" : "border-border hover:border-primary/60"}`}
+											>
+												<div className="flex items-center justify-between text-sm font-medium">
+													<span>#{String(report.id).slice(-8)}</span>
+													<Badge variant={isPrimary ? "success" : "outline"} className="uppercase">
+														{isPrimary ? "Main" : "Will Archive"}
+													</Badge>
+												</div>
+												<div className="mt-2 font-semibold">
+													{report.incident_title || "Untitled incident"}
+												</div>
+												{report.street_address && (
+													<div className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
+														<MapPin className="mt-0.5 h-3.5 w-3.5" />
+														<span>{report.street_address}</span>
+													</div>
+												)}
+												<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+													<Calendar className="h-3.5 w-3.5" />
+													<span>{report.incident_date || "No date"}</span>
+													{report.incident_time && <span>{report.incident_time}</span>}
+												</div>
+												{report.description && (
+													<p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+														{report.description}
+													</p>
+												)}
+												<div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+													<span>{report.reporter_id ? `Reporter: ${report.reporter_id}` : "Reporter unknown"}</span>
+													<span>{attachmentsCount} attachment{attachmentsCount === 1 ? "" : "s"}</span>
+												</div>
+											</button>
+										)
+									})}
+								</div>
+								{mergeError && (
+									<div className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-600">
+										{mergeError}
+									</div>
+								)}
+							</div>
+						)}
+						<DialogFooter>
+							<Button
+								variant="outline"
+								onClick={() => {
+									if (isMerging) return
+									setIsMergeDialogOpen(false)
+									setMergeError(null)
+									setMergePrimaryId(null)
+								}}
+								disabled={isMerging}
+							>
+								Cancel
+							</Button>
+							<Button
+								onClick={handleConfirmMerge}
+								disabled={isMerging || !mergePrimaryId || selectedReportsForMerge.length !== 2}
+							>
+								{isMerging ? "Merging..." : "Merge Reports"}
 							</Button>
 						</DialogFooter>
 					</DialogContent>
