@@ -1365,7 +1365,7 @@ export default function IncidentsPage() {
 			}
 		}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent>
 						{saving && (
 							<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
@@ -1478,7 +1478,7 @@ export default function IncidentsPage() {
 				}
 			}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="max-w-2xl">
 						<DialogHeader>
 							<DialogTitle>Assign Officers to Report</DialogTitle>
@@ -1766,7 +1766,7 @@ export default function IncidentsPage() {
 				}}
 			>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="sm:max-w-2xl">
 						<DialogHeader>
 							<DialogTitle>Merge Reports</DialogTitle>
@@ -1869,7 +1869,7 @@ export default function IncidentsPage() {
 			{/* Mismatch Warnings Dialog */}
 				<Dialog open={isMismatchDialogOpen} onOpenChange={setIsMismatchDialogOpen}>
 					<DialogPortal>
-						<DialogOverlay />
+						<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 						<DialogContent className="fixed right-4 top-1/4 max-w-sm -translate-y-1/4">
 							<DialogHeader>
 								<DialogTitle>Mismatch Warnings</DialogTitle>
@@ -1911,7 +1911,7 @@ export default function IncidentsPage() {
 				}
 			}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="sm:max-w-lg">
 						<DialogHeader>
 							<DialogTitle>Witness Statement</DialogTitle>
@@ -1958,7 +1958,7 @@ export default function IncidentsPage() {
 				}
 			}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
 						<DialogHeader>
 							<DialogTitle>Report Details</DialogTitle>
@@ -2323,7 +2323,7 @@ export default function IncidentsPage() {
 				}
 			}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
 						<DialogHeader>
 							<DialogTitle>{viewerFilename || 'Attachment'}</DialogTitle>
