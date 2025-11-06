@@ -1291,7 +1291,7 @@ export default function IncidentsPage() {
 					</Card>
 
 					{/* Incidents Table */}
-					<Card className="flex h-[600px] flex-col">
+					<Card className="flex h-[680px] flex-col">
 						<CardHeader className="flex-shrink-0">
 							<CardTitle>
 								Incidents ({filteredIncidents.length})
