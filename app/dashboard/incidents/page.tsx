@@ -214,6 +214,11 @@ export default function IncidentsPage() {
 				throw new Error(archiveResult.error.message || "Failed to archive merged report.")
 			}
 
+			const statusUpdateResult = await client.updateReport(secondaryReport.id, { status: "cancelled" })
+			if (statusUpdateResult.error) {
+				throw new Error(statusUpdateResult.error.message || "Failed to set merged report status to cancelled.")
+			}
+
 			setArchivedIds((prev) => {
 				const next = new Set(prev)
 				next.add(secondaryReport.id.toString())
