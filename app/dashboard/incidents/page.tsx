@@ -256,7 +256,7 @@ export default function IncidentsPage() {
 				throw new Error(updateArchivedResult.error.message || "Failed to mark report as archived.")
 			}
 
-			const statusUpdateResult = await client.updateReport(secondaryReport.id, { status: "cancelled" })
+			const statusUpdateResult = await client.updateReport(secondaryReport.id, { status: "cancelled", is_archived: true })
 			if (statusUpdateResult.error) {
 				throw new Error(statusUpdateResult.error.message || "Failed to set merged report status to cancelled.")
 			}
@@ -2472,9 +2472,14 @@ export default function IncidentsPage() {
 								const client = getDispatchClient()
 								const result = await client.archiveReport(confirmArchiveReport.id)
 								if (result.error) {
-									console.error("Failed to archive report:", result.error)
-									return
+								console.error("Failed to archive report:", result.error)
+								return
 								}
+				// Ensure is_archived is set
+				const updateResult = await client.updateReport(confirmArchiveReport.id, { is_archived: true })
+				if (updateResult.error) {
+					console.error("Failed to set is_archived:", updateResult.error)
+				}
 								setArchivedIds((prev) => new Set(prev).add(confirmArchiveReport.id.toString()))
 								setConfirmArchiveReport(null)
 							} catch (e) {
