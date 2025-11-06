@@ -288,6 +288,95 @@ export default function IncidentsPage() {
 				}
 			}
 
+			// Merge witnesses from secondary report into primary report
+			const primaryWitnesses = Array.isArray(primaryReport.witnesses) ? primaryReport.witnesses : []
+			const secondaryWitnesses = Array.isArray(secondaryReport.witnesses) ? secondaryReport.witnesses : []
+
+			if (secondaryWitnesses.length > 0) {
+				const witnessHelper =
+					typeof (client as any).addToWitness === "function"
+						? (client as any).addToWitness.bind(client)
+						: client.addWitnessToReport?.bind(client)
+
+				if (!witnessHelper) {
+					throw new Error("Witness helper not available.")
+				}
+
+				// Create a map of existing witnesses by user_id
+				const existingWitnessMap = new Map<string, { statement: string | null }>()
+				for (const witness of primaryWitnesses) {
+					if (isWitnessRecord(witness)) {
+						existingWitnessMap.set(witness.user_id, {
+							statement: typeof witness.statement === "string" ? witness.statement : null
+						})
+					}
+				}
+
+				// Process each witness from secondary report
+				for (const witness of secondaryWitnesses) {
+					if (!isWitnessRecord(witness)) continue
+
+					const existingWitness = existingWitnessMap.get(witness.user_id)
+					const secondaryStatement = typeof witness.statement === "string" ? witness.statement?.trim() : null
+
+					if (existingWitness) {
+						// Witness exists in primary report - merge statements if different
+						const primaryStatement = existingWitness.statement?.trim() ?? ""
+						
+						if (secondaryStatement && primaryStatement !== secondaryStatement) {
+							const mergedStatement = primaryStatement 
+								? `${primaryStatement}\n\n---\n\n${secondaryStatement}`
+								: secondaryStatement
+
+							// Update the witness statement by fetching current witnesses, updating, and saving
+							const { data: currentReport, error: fetchError } = await client.supabaseClient
+								.from('reports')
+								.select('witnesses')
+								.eq('id', primaryReport.id)
+								.single()
+
+							if (fetchError) {
+								throw new Error(fetchError.message || "Failed to fetch current witnesses.")
+							}
+
+							const currentWitnesses = Array.isArray(currentReport.witnesses) ? currentReport.witnesses : []
+							const updatedWitnesses = currentWitnesses.map((w: any) => {
+								if (isWitnessRecord(w) && w.user_id === witness.user_id) {
+									return { ...w, statement: mergedStatement }
+								}
+								return w
+							})
+
+							const { error: updateError } = await client.supabaseClient
+								.from('reports')
+								.update({ witnesses: updatedWitnesses })
+								.eq('id', primaryReport.id)
+
+							if (updateError) {
+								throw new Error(updateError.message || "Failed to update witness statement.")
+							}
+
+							// Update our local map
+							existingWitnessMap.set(witness.user_id, { statement: mergedStatement })
+						}
+					} else {
+						// New witness - add to primary report
+						const witnessResult = await witnessHelper(
+							primaryReport.id,
+							witness.user_id,
+							secondaryStatement ?? null,
+						)
+
+						if (witnessResult?.error) {
+							throw new Error(witnessResult.error.message || "Failed to add witness from secondary report.")
+						}
+
+						// Add to our local map
+						existingWitnessMap.set(witness.user_id, { statement: secondaryStatement })
+					}
+				}
+			}
+
 			const archiveResult = await client.archiveReport(secondaryReport.id)
 			if (archiveResult.error) {
 				throw new Error(archiveResult.error.message || "Failed to archive merged report.")
