@@ -245,7 +245,29 @@ export default function IncidentsPage() {
 				}
 			}
 
-			if (secondaryReport.reporter_id) {
+			// Check if both reports have the same reporter
+			const sameReporter = primaryReport.reporter_id && secondaryReport.reporter_id && 
+				primaryReport.reporter_id === secondaryReport.reporter_id
+
+			if (sameReporter) {
+				// Merge what_happened fields if they have the same reporter
+				const primaryWhatHappened = primaryReport.what_happened?.trim() ?? ""
+				const secondaryWhatHappened = secondaryReport.what_happened?.trim() ?? ""
+				
+				if (secondaryWhatHappened && primaryWhatHappened !== secondaryWhatHappened) {
+					const mergedWhatHappened = primaryWhatHappened 
+						? `${primaryWhatHappened}\n\n---\n\n${secondaryWhatHappened}`
+						: secondaryWhatHappened
+					
+					const updateWhatHappenedResult = await client.updateReport(primaryReport.id, { 
+						what_happened: mergedWhatHappened 
+					})
+					if (updateWhatHappenedResult.error) {
+						throw new Error(updateWhatHappenedResult.error.message || "Failed to merge what_happened.")
+					}
+				}
+			} else if (secondaryReport.reporter_id) {
+				// Different reporters - add secondary reporter as witness
 				const witnessHelper =
 					typeof (client as any).addToWitness === "function"
 						? (client as any).addToWitness.bind(client)
