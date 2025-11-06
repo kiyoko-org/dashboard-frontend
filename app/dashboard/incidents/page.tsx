@@ -115,7 +115,8 @@ export default function IncidentsPage() {
 
 	// Helper functions to get category and subcategory names
 	const getCategoryName = (categoryId?: number | null) => {
-		if (!categoryId || !categories) return "Unknown Category"
+		if (categoryId === null || categoryId === undefined) return "Not Defined"
+		if (!categories) return "Unknown Category"
 		const category = categories.find(cat => cat.id === categoryId)
 		return category?.name || "Unknown Category"
 	}
