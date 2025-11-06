@@ -891,16 +891,20 @@ export default function IncidentsPage() {
 	type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled" | "unresolved"
 	const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
 	const [editedPoliceNotes, setEditedPoliceNotes] = useState<string>("")
+	const [editedCategory, setEditedCategory] = useState<number | null>(null)
+	const [editedSubcategory, setEditedSubcategory] = useState<number | null>(null)
 	const [saving, setSaving] = useState(false)
 	const [updateError, setUpdateError] = useState<string | null>(null)
 
 	const handleSaveStatus = async () => {
 		if (!selectedReport) return
-		
+
 		const statusChanged = editedStatus !== (selectedReport.status ?? 'pending')
 		const policeNotesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
-		
-		if (!statusChanged && !policeNotesChanged) {
+		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
+		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
+
+		if (!statusChanged && !policeNotesChanged && !categoryChanged && !subcategoryChanged) {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			return
@@ -927,6 +931,12 @@ export default function IncidentsPage() {
 		if (policeNotesChanged && (editedStatus === 'resolved' || selectedReport.status === 'resolved')) {
 			updateData.police_notes = editedPoliceNotes
 		}
+		if (categoryChanged) {
+			updateData.category_id = editedCategory
+		}
+		if (subcategoryChanged) {
+			updateData.sub_category = editedSubcategory
+		}
 
 			const result = await client.updateReport(selectedReport.id, updateData)
 			if (result.error) {
@@ -946,6 +956,8 @@ export default function IncidentsPage() {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			setEditedPoliceNotes("")
+			setEditedCategory(null)
+			setEditedSubcategory(null)
 		} catch (err) {
 			console.error("Failed to update status", err)
 			setUpdateError(err instanceof Error ? err.message : 'Failed to update status')
@@ -954,7 +966,7 @@ export default function IncidentsPage() {
 		}
 	}
 
-	const saveDisabled = saving || !!(selectedReport && editedStatus === ((selectedReport.status ?? 'pending') as ReportStatus) && editedPoliceNotes === (selectedReport.police_notes ?? ""))
+	const saveDisabled = saving || !!(selectedReport && editedStatus === ((selectedReport.status ?? 'pending') as ReportStatus) && editedPoliceNotes === (selectedReport.police_notes ?? "") && editedCategory === (selectedReport.category_id ?? null) && editedSubcategory === (selectedReport.sub_category ?? null))
 
 	return (
 		<div className="flex flex-col">
@@ -1325,11 +1337,13 @@ export default function IncidentsPage() {
 																<UserPlus className="h-4 w-4" />
 															</Button>
 															<Button variant="ghost" size="icon" onClick={() => {
-																setSelectedReport(report)
-																setEditedStatus((report.status ?? "pending") as ReportStatus)
-																setEditedPoliceNotes(report.police_notes ?? "")
-																setIsEditOpen(true)
-															}} title="Edit status" disabled={isArchived}>
+															setSelectedReport(report)
+															setEditedStatus((report.status ?? "pending") as ReportStatus)
+															setEditedPoliceNotes(report.police_notes ?? "")
+															setEditedCategory(report.category_id ?? null)
+															 setEditedSubcategory(report.sub_category ?? null)
+											setIsEditOpen(true)
+										}} title="Edit" disabled={isArchived}>
 																<Edit className="h-4 w-4" />
 															</Button>
 															<Button
@@ -1378,16 +1392,63 @@ export default function IncidentsPage() {
 							</div>
 						)}
 						<DialogHeader>
-							<DialogTitle>Edit Status</DialogTitle>
+							<DialogTitle>Edit</DialogTitle>
 						</DialogHeader>
 						<div className="space-y-4">
-							<div>
-								<div className="text-sm text-muted-foreground">Report</div>
-								<div className="font-medium">{selectedReport?.incident_title}</div>
-								<div className="text-xs text-muted-foreground">#{String(selectedReport?.id ?? "").slice(-8)}</div>
-							</div>
-							<div>
-								<div className="text-sm text-muted-foreground mb-2">Status</div>
+						<div>
+						<div className="text-sm text-muted-foreground">Report</div>
+						<div className="font-medium">{selectedReport?.incident_title}</div>
+						<div className="text-xs text-muted-foreground">#{String(selectedReport?.id ?? "").slice(-8)}</div>
+						</div>
+						<div>
+						<div className="text-sm text-muted-foreground mb-2">Category</div>
+									<Select
+										value={editedCategory?.toString() ?? ""}
+										onValueChange={(value) => {
+											const catId = value ? parseInt(value, 10) : null
+											setEditedCategory(catId)
+											setEditedSubcategory(null) // Reset subcategory when category changes
+										}}
+										disabled={saving}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Select category" />
+										</SelectTrigger>
+										<SelectContent>
+											{categories?.map((category) => (
+												<SelectItem key={category.id} value={category.id.toString()}>
+													{category.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								{editedCategory !== null && categories?.find(cat => cat.id === editedCategory)?.sub_categories && categories.find(cat => cat.id === editedCategory)!.sub_categories.length > 0 && (
+									<div>
+										<div className="text-sm text-muted-foreground mb-2">Subcategory</div>
+										<Select
+											value={editedSubcategory?.toString() ?? ""}
+											onValueChange={(value) => {
+												const subId = value ? parseInt(value, 10) : null
+												setEditedSubcategory(subId)
+											}}
+											disabled={saving}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select subcategory" />
+											</SelectTrigger>
+											<SelectContent>
+												{categories.find(cat => cat.id === editedCategory)?.sub_categories.map((sub, index) => (
+													<SelectItem key={index} value={index.toString()}>
+														{sub}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+								)}
+								<div>
+									<div className="text-sm text-muted-foreground mb-2">Status</div>
 								<Select
 									value={editedStatus}
 									onValueChange={(value) => {
@@ -1441,6 +1502,8 @@ export default function IncidentsPage() {
 										setIsEditOpen(false)
 										setSelectedReport(null)
 										setEditedPoliceNotes("")
+										setEditedCategory(null)
+										setEditedSubcategory(null)
 										setShowCancelConfirm(false)
 									}
 								}}
