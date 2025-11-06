@@ -92,6 +92,20 @@ export default function IncidentsPage() {
 		return isArchivedFlag || isArchivedStatus || isLocallyArchived
 	}, [archivedIds])
 
+	// Helper functions to get category and subcategory names
+	const getCategoryName = (categoryId?: number | null) => {
+		if (!categoryId || !categories) return "Unknown Category"
+		const category = categories.find(cat => cat.id === categoryId)
+		return category?.name || "Unknown Category"
+	}
+
+	const getSubcategoryName = (categoryId?: number | null, subcategoryIndex?: number | null) => {
+		if (!categoryId || subcategoryIndex === null || subcategoryIndex === undefined || !categories) return "Unknown Subcategory"
+		const category = categories.find(cat => cat.id === categoryId)
+		if (!category?.sub_categories || subcategoryIndex >= category.sub_categories.length) return "Unknown Subcategory"
+		return category.sub_categories[subcategoryIndex] || "Unknown Subcategory"
+	}
+
 	const selectedReportsForMerge = useMemo<Report[]>(() => {
 		if (selectedReportIdsForMerge.size === 0) return []
 
@@ -107,13 +121,30 @@ export default function IncidentsPage() {
 	}, [selectedReportsForMerge])
 
 	const mergeStreetAddresses = useMemo(() => {
-		if (selectedReportsForMerge.length !== 2) return { a: '', b: '' }
-		const [a, b] = selectedReportsForMerge
-		return {
-			a: a?.street_address ?? 'Not specified',
-			b: b?.street_address ?? 'Not specified',
-		}
+	if (selectedReportsForMerge.length !== 2) return { a: '', b: '' }
+	const [a, b] = selectedReportsForMerge
+	return {
+	a: a?.street_address ?? 'Not specified',
+	b: b?.street_address ?? 'Not specified',
+	}
 	}, [selectedReportsForMerge])
+
+  const mergeCategoryMismatch = useMemo(() => {
+    if (selectedReportsForMerge.length !== 2) return false
+    const [a, b] = selectedReportsForMerge
+    const aCat = (a?.category_id ?? '').toString()
+    const bCat = (b?.category_id ?? '').toString()
+    return aCat !== bCat
+  }, [selectedReportsForMerge])
+
+  const mergeCategories = useMemo(() => {
+    if (selectedReportsForMerge.length !== 2) return { a: '', b: '' }
+    const [a, b] = selectedReportsForMerge
+    return {
+      a: getCategoryName(a?.category_id) ?? 'Not specified',
+      b: getCategoryName(b?.category_id) ?? 'Not specified',
+    }
+  }, [selectedReportsForMerge])
 
 	const canMergeSelectedReports = selectedReportIdsForMerge.size === 2
 	const mergeSelectionLimitReached = selectedReportIdsForMerge.size >= 2
@@ -664,20 +695,6 @@ export default function IncidentsPage() {
 				{txt}
 			</Badge>
 		)
-	}
-
-	// Helper functions to get category and subcategory names
-	const getCategoryName = (categoryId?: number | null) => {
-		if (!categoryId || !categories) return "Unknown Category"
-		const category = categories.find(cat => cat.id === categoryId)
-		return category?.name || "Unknown Category"
-	}
-
-	const getSubcategoryName = (categoryId?: number | null, subcategoryIndex?: number | null) => {
-		if (!categoryId || subcategoryIndex === null || subcategoryIndex === undefined || !categories) return "Unknown Subcategory"
-		const category = categories.find(cat => cat.id === categoryId)
-		if (!category?.sub_categories || subcategoryIndex >= category.sub_categories.length) return "Unknown Subcategory"
-		return category.sub_categories[subcategoryIndex] || "Unknown Subcategory"
 	}
 
 	// Get subcategories for the selected category
@@ -1802,15 +1819,25 @@ export default function IncidentsPage() {
 									})}
 								</div>
 								{mergeStreetAddressMismatch && (
-									<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
-										<div className="font-medium mb-1">Address Mismatch</div>
-										<div>Selected reports have different street addresses:</div>
-										<div className="mt-2">
-											<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeStreetAddresses.a}</div>
-											<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeStreetAddresses.b}</div>
-										</div>
-									</div>
+								<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
+								<div className="font-medium mb-1">Address Mismatch</div>
+								<div>Selected reports have different street addresses:</div>
+								<div className="mt-2">
+								<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeStreetAddresses.a}</div>
+								<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeStreetAddresses.b}</div>
+								</div>
+								</div>
 								)}
+				{mergeCategoryMismatch && (
+					<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
+						<div className="font-medium mb-1">Category Mismatch</div>
+						<div>Selected reports have different categories:</div>
+						<div className="mt-2">
+							<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeCategories.a}</div>
+							<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeCategories.b}</div>
+						</div>
+					</div>
+				)}
 								{mergeError && (
 									<div className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-600">
 										{mergeError}
