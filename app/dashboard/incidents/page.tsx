@@ -1789,8 +1789,7 @@ export default function IncidentsPage() {
 														{report.description}
 													</p>
 												)}
-												<div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-													<span>{report.reporter_id ? `Reporter: ${report.reporter_id}` : "Reporter unknown"}</span>
+												<div className="mt-3 flex items-center justify-end text-xs text-muted-foreground">
 													<span>{attachmentsCount} attachment{attachmentsCount === 1 ? "" : "s"}</span>
 												</div>
 											</button>
