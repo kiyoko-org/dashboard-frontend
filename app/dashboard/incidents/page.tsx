@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -85,6 +85,26 @@ export default function IncidentsPage() {
 	const [mergeError, setMergeError] = useState<string | null>(null)
 	const [isMerging, setIsMerging] = useState(false)
 	const [isMismatchDialogOpen, setIsMismatchDialogOpen] = useState(false)
+	const topScrollRef = useRef<HTMLDivElement>(null)
+	const topScrollContentRef = useRef<HTMLDivElement>(null)
+	const tableWrapperRef = useRef<HTMLDivElement | null>(null)
+	const tableElementRef = useRef<HTMLTableElement | null>(null)
+	const tableRefCallback = useCallback((node: HTMLTableElement | null) => {
+		tableElementRef.current = node
+
+		if (tableWrapperRef.current && tableWrapperRef.current !== node?.parentElement) {
+			tableWrapperRef.current.removeAttribute("data-hide-scrollbar")
+		}
+
+		if (node?.parentElement instanceof HTMLDivElement) {
+			tableWrapperRef.current = node.parentElement
+			tableWrapperRef.current.setAttribute("data-hide-scrollbar", "true")
+			tableWrapperRef.current.style.setProperty("scrollbar-width", "none")
+			tableWrapperRef.current.style.setProperty("-ms-overflow-style", "none")
+		} else {
+			tableWrapperRef.current = null
+		}
+	}, [])
 
 	const isReportArchived = useCallback((report: Report) => {
 		const isArchivedFlag = Boolean(report.is_archived)
@@ -277,6 +297,9 @@ export default function IncidentsPage() {
 		}
 	}
 
+	// Mirror the table's horizontal scroll at the top helper scrollbar
+	// Mirror the table's horizontal scroll area to a helper scrollbar anchored at the card's header
+	// Keep the helper scrollbar in sync with the table and hide the built-in horizontal bar.
 	useEffect(() => {
 		setSelectedReportIdsForMerge((prev) => {
 			if (prev.size === 0) return prev
@@ -869,6 +892,73 @@ export default function IncidentsPage() {
 		return 0
 	})
 
+	useEffect(() => {
+		const top = topScrollRef.current
+		const topContent = topScrollContentRef.current
+		const scrollable = tableWrapperRef.current
+		const tableEl = tableElementRef.current
+
+		if (!top || !topContent || !scrollable) return
+
+		scrollable.setAttribute("data-hide-scrollbar", "true")
+		scrollable.style.setProperty("scrollbar-width", "none")
+		scrollable.style.setProperty("-ms-overflow-style", "none")
+
+		const updateWidth = () => {
+			const width = tableEl ? tableEl.scrollWidth : scrollable.scrollWidth
+			const nextWidth = Math.max(width, scrollable.clientWidth)
+			topContent.style.width = `${nextWidth}px`
+		}
+
+		updateWidth()
+		top.scrollLeft = scrollable.scrollLeft ?? 0
+
+		let resizeObserver: ResizeObserver | null = null
+		if (typeof ResizeObserver !== "undefined") {
+			resizeObserver = new ResizeObserver(updateWidth)
+			resizeObserver.observe(scrollable)
+			if (tableEl) {
+				resizeObserver.observe(tableEl)
+			}
+		} else {
+			window.addEventListener("resize", updateWidth)
+		}
+
+		let isSyncingFromTop = false
+		let isSyncingFromTable = false
+
+		const handleTopScroll = () => {
+			if (isSyncingFromTop) {
+				isSyncingFromTop = false
+				return
+			}
+			isSyncingFromTable = true
+			scrollable.scrollLeft = top.scrollLeft
+		}
+
+		const handleTableScroll = () => {
+			if (isSyncingFromTable) {
+				isSyncingFromTable = false
+				return
+			}
+			isSyncingFromTop = true
+			top.scrollLeft = scrollable.scrollLeft
+		}
+
+		top.addEventListener("scroll", handleTopScroll)
+		scrollable.addEventListener("scroll", handleTableScroll)
+
+		return () => {
+			top.removeEventListener("scroll", handleTopScroll)
+			scrollable.removeEventListener("scroll", handleTableScroll)
+			if (resizeObserver) {
+				resizeObserver.disconnect()
+			} else {
+				window.removeEventListener("resize", updateWidth)
+			}
+		}
+	}, [loading, sortedIncidents.length])
+
 	const handleSort = (field: keyof Report) => {
 		if (sortField === field) {
 			setSortDirection(sortDirection === "asc" ? "desc" : "asc")
@@ -984,7 +1074,8 @@ export default function IncidentsPage() {
 	const saveDisabled = saving || !hasChanges
 
 	return (
-		<div className="flex flex-col">
+		<>
+			<div className="flex flex-col">
 			<Header title="Incident Management" />
 
 			<div className="flex-1 space-y-6 p-6">
@@ -1199,186 +1290,209 @@ export default function IncidentsPage() {
 						</CardContent>
 					</Card>
 
-						{/* Incidents Table */}
-						<Card>
-							<CardHeader>
-								<CardTitle>
-									Incidents ({filteredIncidents.length})
-								</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<Table>
-									<TableHeader>
-										<TableRow>
-											<TableHead className="w-[60px] text-center">
-												Merge
-											</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("id")}
-											>
-												<div className="flex items-center gap-2">
-													ID
-													{getSortIcon("id")}
-												</div>
-											</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("incident_title")}
-											>
-												<div className="flex items-center gap-2">
-													Title
-													{getSortIcon("incident_title")}
-												</div>
-											</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("category_id")}
-											>
-												<div className="flex items-center gap-2">
-													Category
-													{getSortIcon("category_id")}
-												</div>
-											</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("incident_date")}
-											>
-												<div className="flex items-center gap-2">
-													Date & Time
-													{getSortIcon("incident_date")}
-												</div>
-											</TableHead>
-											<TableHead className="min-w-[18rem]">Location</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("status")}
-											>
-												<div className="flex items-center gap-2">
-													Status
-													{getSortIcon("status")}
-												</div>
-											</TableHead>
-											<TableHead className="text-right">Actions</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{sortedIncidents.map((report) => {
-											const isArchived = isReportArchived(report)
-											const isSelected = selectedReportIdsForMerge.has(report.id)
-											const rowClass = `${isArchived ? "opacity-60" : ""} ${isSelected ? "bg-muted/40" : ""}`.trim() || undefined
-											return (
-												<TableRow key={report.id} className={rowClass}>
-													<TableCell className="w-[60px]">
-														<div className="flex justify-center">
-															<Checkbox
-																checked={isSelected}
-																onCheckedChange={(checked) => toggleMergeSelection(report, checked === true)}
-																disabled={isArchived || (!isSelected && mergeSelectionLimitReached)}
-																aria-label={`Select report ${report.id} for merging`}
-															/>
-														</div>
-													</TableCell>
-													<TableCell className="font-medium">
-														#{String(report.id).slice(-8)}
-													</TableCell>
-													<TableCell>
+					{/* Incidents Table */}
+					<Card className="flex h-[600px] flex-col">
+						<CardHeader className="flex-shrink-0">
+							<CardTitle>
+								Incidents ({filteredIncidents.length})
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="flex-1 overflow-hidden p-0">
+							<div className="flex h-full flex-col">
+								<div className="flex-shrink-0 border-b bg-background">
+									<div
+										ref={topScrollRef}
+										className="h-4 overflow-x-auto overflow-y-hidden px-6 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-sm"
+										aria-hidden="true"
+									>
+										<div ref={topScrollContentRef} className="h-4" />
+									</div>
+								</div>
+								<div className="flex-1 overflow-hidden">
+									<div
+										className="h-full overflow-y-auto overflow-x-hidden p-6 [&>div]:overflow-x-auto [&>div]:overflow-y-visible [&>div]:[scrollbar-width:none] [&>div]:[-ms-overflow-style:'none']"
+									>
+										<Table ref={tableRefCallback}>
+											<TableHeader>
+												<TableRow>
+													<TableHead className="w-[60px] text-center">
+														Merge
+													</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("id")}
+													>
 														<div className="flex items-center gap-2">
-															<AlertTriangle className="h-4 w-4 text-red-500" />
-															<span className="font-medium">{report.incident_title}</span>
+															ID
+															{getSortIcon("id")}
 														</div>
-													</TableCell>
-													<TableCell>
-														<div>
-															<div className="font-medium">{getCategoryName(report.category_id)}</div>
-															{report.sub_category !== null && report.sub_category !== undefined && (
-																<div className="text-xs text-muted-foreground">
-																	{getSubcategoryName(report.category_id, report.sub_category)}
-																</div>
-															)}
+													</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("incident_title")}
+													>
+														<div className="flex items-center gap-2">
+															Title
+															{getSortIcon("incident_title")}
 														</div>
-													</TableCell>
-													<TableCell>
-														<div className="flex items-center gap-1 text-sm">
-															<Calendar className="h-3 w-3 text-muted-foreground" />
-															{report.incident_date}
+													</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("category_id")}
+													>
+														<div className="flex items-center gap-2">
+															Category
+															{getSortIcon("category_id")}
 														</div>
-														<div className="text-xs text-muted-foreground">
-															{report.incident_time}
+													</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("incident_date")}
+													>
+														<div className="flex items-center gap-2">
+															Date & Time
+															{getSortIcon("incident_date")}
 														</div>
-													</TableCell>
-													<TableCell className="min-w-[18rem]">
-														<div className="flex items-start gap-1">
-															<MapPin className="h-3 w-3 mt-1 text-muted-foreground flex-shrink-0" />
-															<span className="text-sm">
-																{report.street_address}
-																{report.nearby_landmark && ` (${report.nearby_landmark})`}
-															</span>
+													</TableHead>
+													<TableHead className="min-w-[18rem]">Location</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("status")}
+													>
+														<div className="flex items-center gap-2">
+															Status
+															{getSortIcon("status")}
 														</div>
-													</TableCell>
-													<TableCell>{getStatusBadge(report.status)}</TableCell>
-													<TableCell>
-														<div className="flex justify-end gap-2">
-															<Button
-																variant="ghost"
-																size="icon"
-																disabled={isArchived}
-																title={isArchived ? "Disabled for archived reports" : "View details"}
-																onClick={() => {
-																	setSelectedReportForDetail(report)
-																	setIsDetailDialogOpen(true)
-																}}
-															>
-																<Eye className="h-4 w-4" />
-															</Button>
-															<Button
-																variant="ghost"
-																size="icon"
-																onClick={() => {
-																	setSelectedReportForAssignment(report)
-																	setSelectedOfficers(new Set())
-																	setOfficerSearchQuery("")
-																	setIsAssignDialogOpen(true)
-																}}
-																title={
-																	report.status === 'resolved'
-																		? "Cannot assign to resolved report"
-																		: report.status === 'cancelled'
-																			? "Cannot assign to cancelled report"
-																			: "Assign officers"
-																}
-																disabled={isArchived || report.status === 'resolved' || report.status === 'cancelled'}
-															>
-																<UserPlus className="h-4 w-4" />
-															</Button>
-															<Button variant="ghost" size="icon" onClick={() => {
-															setSelectedReport(report)
-															setEditedStatus((report.status ?? "pending") as ReportStatus)
-															setEditedPoliceNotes(report.police_notes ?? "")
-															setEditedCategory(report.category_id ?? null)
-															 setEditedSubcategory(report.sub_category ?? null)
-											setIsEditOpen(true)
-										}} title="Edit" disabled={isArchived}>
-																<Edit className="h-4 w-4" />
-															</Button>
-															<Button
-																variant="ghost"
-																size="icon"
-																title="Archive"
-																onClick={() => setConfirmArchiveReport(report)}
-																disabled={isArchived || report.status !== 'resolved'}
-															>
-																<Archive className={`h-4 w-4 ${isArchived || report.status !== 'resolved' ? 'text-gray-400' : 'text-orange-500'}`} />
-															</Button>
-														</div>
-													</TableCell>
+													</TableHead>
+													<TableHead className="text-right">Actions</TableHead>
 												</TableRow>
-											)
-										})}
-									</TableBody>
-								</Table>
-							</CardContent>
-						</Card>
+											</TableHeader>
+											<TableBody>
+												{sortedIncidents.map((report) => {
+													const isArchived = isReportArchived(report)
+													const isSelected = selectedReportIdsForMerge.has(report.id)
+													const rowClass = `${isArchived ? "opacity-60" : ""} ${isSelected ? "bg-muted/40" : ""}`.trim() || undefined
+													return (
+														<TableRow key={report.id} className={rowClass}>
+															<TableCell className="w-[60px]">
+																<div className="flex justify-center">
+																	<Checkbox
+																		checked={isSelected}
+																		onCheckedChange={(checked) => toggleMergeSelection(report, checked === true)}
+																		disabled={isArchived || (!isSelected && mergeSelectionLimitReached)}
+																		aria-label={`Select report ${report.id} for merging`}
+																	/>
+																</div>
+															</TableCell>
+															<TableCell className="font-medium">
+																#{String(report.id).slice(-8)}
+															</TableCell>
+															<TableCell>
+																<div className="flex items-center gap-2">
+																	<AlertTriangle className="h-4 w-4 text-red-500" />
+																	<span className="font-medium">{report.incident_title}</span>
+																</div>
+															</TableCell>
+															<TableCell>
+																<div>
+																	<div className="font-medium">{getCategoryName(report.category_id)}</div>
+																	{report.sub_category !== null && report.sub_category !== undefined && (
+																		<div className="text-xs text-muted-foreground">
+																			{getSubcategoryName(report.category_id, report.sub_category)}
+																		</div>
+																	)}
+																</div>
+															</TableCell>
+															<TableCell>
+																<div className="flex items-center gap-1 text-sm">
+																	<Calendar className="h-3 w-3 text-muted-foreground" />
+																	{report.incident_date}
+																</div>
+																<div className="text-xs text-muted-foreground">
+																	{report.incident_time}
+																</div>
+															</TableCell>
+															<TableCell className="min-w-[18rem]">
+																<div className="flex items-start gap-1">
+																	<MapPin className="h-3 w-3 mt-1 text-muted-foreground flex-shrink-0" />
+																	<span className="text-sm">
+																		{report.street_address}
+																		{report.nearby_landmark && ` (${report.nearby_landmark})`}
+																	</span>
+																</div>
+															</TableCell>
+															<TableCell>{getStatusBadge(report.status)}</TableCell>
+															<TableCell>
+																<div className="flex justify-end gap-2">
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		disabled={isArchived}
+																		title={isArchived ? "Disabled for archived reports" : "View details"}
+																		onClick={() => {
+																			setSelectedReportForDetail(report)
+																			setIsDetailDialogOpen(true)
+																		}}
+																	>
+																		<Eye className="h-4 w-4" />
+																	</Button>
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		onClick={() => {
+																			setSelectedReportForAssignment(report)
+																			setSelectedOfficers(new Set())
+																			setOfficerSearchQuery("")
+																			setIsAssignDialogOpen(true)
+																		}}
+																		title={
+																			report.status === 'resolved'
+																				? "Cannot assign to resolved report"
+																				: report.status === 'cancelled'
+																					? "Cannot assign to cancelled report"
+																					: "Assign officers"
+																		}
+																		disabled={isArchived || report.status === 'resolved' || report.status === 'cancelled'}
+																	>
+																		<UserPlus className="h-4 w-4" />
+																	</Button>
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		onClick={() => {
+																			setSelectedReport(report)
+																			setEditedStatus((report.status ?? "pending") as ReportStatus)
+																			setEditedPoliceNotes(report.police_notes ?? "")
+																			setEditedCategory(report.category_id ?? null)
+																			setEditedSubcategory(report.sub_category ?? null)
+																			setIsEditOpen(true)
+																		}}
+																		title="Edit"
+																		disabled={isArchived}
+																	>
+																		<Edit className="h-4 w-4" />
+																	</Button>
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		title="Archive"
+																		onClick={() => setConfirmArchiveReport(report)}
+																		disabled={isArchived || report.status !== 'resolved'}
+																	>
+																		<Archive className={`h-4 w-4 ${isArchived || report.status !== 'resolved' ? 'text-gray-400' : 'text-orange-500'}`} />
+																	</Button>
+																</div>
+															</TableCell>
+														</TableRow>
+													)
+												})}
+											</TableBody>
+										</Table>
+									</div>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 					</>
 				)}
 			</div>
@@ -2491,7 +2605,12 @@ export default function IncidentsPage() {
 					</div>
 				</DialogContent>
 			</Dialog>
-
-		</div >
+			</div>
+			<style jsx>{`
+				[data-hide-scrollbar="true"]::-webkit-scrollbar {
+					display: none;
+				}
+			`}</style>
+		</>
 	)
 }
