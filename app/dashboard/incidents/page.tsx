@@ -201,7 +201,7 @@ export default function IncidentsPage() {
 				const witnessResult = await witnessHelper(
 					primaryReport.id,
 					secondaryReport.reporter_id,
-					secondaryReport.description ?? null,
+					secondaryReport.what_happened ?? null,
 				)
 
 				if (witnessResult?.error) {
