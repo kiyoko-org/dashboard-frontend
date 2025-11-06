@@ -250,6 +250,12 @@ export default function IncidentsPage() {
 				throw new Error(archiveResult.error.message || "Failed to archive merged report.")
 			}
 
+			// Ensure the archived report is marked as archived
+			const updateArchivedResult = await client.updateReport(secondaryReport.id, { is_archived: true })
+			if (updateArchivedResult.error) {
+				throw new Error(updateArchivedResult.error.message || "Failed to mark report as archived.")
+			}
+
 			const statusUpdateResult = await client.updateReport(secondaryReport.id, { status: "cancelled" })
 			if (statusUpdateResult.error) {
 				throw new Error(statusUpdateResult.error.message || "Failed to set merged report status to cancelled.")
