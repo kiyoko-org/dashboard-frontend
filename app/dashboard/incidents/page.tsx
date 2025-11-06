@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -31,6 +32,7 @@ import {
 	ArrowUp,
 	ArrowDown,
 	UserPlus,
+	GitMerge,
 	Check,
 	X,
 	ImageIcon,
@@ -77,6 +79,267 @@ export default function IncidentsPage() {
 	const [startDate, setStartDate] = useState("")
 	const [endDate, setEndDate] = useState("")
 	const [isExporting, setIsExporting] = useState(false)
+	const [selectedReportIdsForMerge, setSelectedReportIdsForMerge] = useState<Set<number>>(new Set())
+	const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false)
+	const [mergePrimaryId, setMergePrimaryId] = useState<number | null>(null)
+	const [mergeError, setMergeError] = useState<string | null>(null)
+	const [isMerging, setIsMerging] = useState(false)
+	const [isMismatchDialogOpen, setIsMismatchDialogOpen] = useState(false)
+	const topScrollRef = useRef<HTMLDivElement>(null)
+	const topScrollContentRef = useRef<HTMLDivElement>(null)
+	const tableWrapperRef = useRef<HTMLDivElement | null>(null)
+	const tableElementRef = useRef<HTMLTableElement | null>(null)
+	const tableRefCallback = useCallback((node: HTMLTableElement | null) => {
+		tableElementRef.current = node
+
+		if (tableWrapperRef.current && tableWrapperRef.current !== node?.parentElement) {
+			tableWrapperRef.current.removeAttribute("data-hide-scrollbar")
+		}
+
+		if (node?.parentElement instanceof HTMLDivElement) {
+			tableWrapperRef.current = node.parentElement
+			tableWrapperRef.current.setAttribute("data-hide-scrollbar", "true")
+			tableWrapperRef.current.style.setProperty("scrollbar-width", "none")
+			tableWrapperRef.current.style.setProperty("-ms-overflow-style", "none")
+		} else {
+			tableWrapperRef.current = null
+		}
+	}, [])
+
+	const isReportArchived = useCallback((report: Report) => {
+		const isArchivedFlag = Boolean(report.is_archived)
+		const isArchivedStatus = report.status === "archived"
+		const isLocallyArchived = archivedIds.has(report.id.toString())
+		return isArchivedFlag || isArchivedStatus || isLocallyArchived
+	}, [archivedIds])
+
+	// Helper functions to get category and subcategory names
+	const getCategoryName = (categoryId?: number | null) => {
+		if (categoryId === null || categoryId === undefined) return "Not Defined"
+		if (!categories) return "Unknown Category"
+		const category = categories.find(cat => cat.id === categoryId)
+		return category?.name || "Unknown Category"
+	}
+
+	const getSubcategoryName = (categoryId?: number | null, subcategoryIndex?: number | null) => {
+		if (!categoryId || subcategoryIndex === null || subcategoryIndex === undefined || !categories) return "Unknown Subcategory"
+		const category = categories.find(cat => cat.id === categoryId)
+		if (!category?.sub_categories || subcategoryIndex >= category.sub_categories.length) return "Unknown Subcategory"
+		return category.sub_categories[subcategoryIndex] || "Unknown Subcategory"
+	}
+
+	const selectedReportsForMerge = useMemo<Report[]>(() => {
+		if (selectedReportIdsForMerge.size === 0) return []
+
+		return reports.filter((report) => selectedReportIdsForMerge.has(report.id))
+	}, [reports, selectedReportIdsForMerge])
+
+	const mergeStreetAddressMismatch = useMemo(() => {
+		if (selectedReportsForMerge.length !== 2) return false
+		const [a, b] = selectedReportsForMerge
+		const aAddr = (a?.street_address ?? '').trim().toLowerCase()
+		const bAddr = (b?.street_address ?? '').trim().toLowerCase()
+		return aAddr !== bAddr
+	}, [selectedReportsForMerge])
+
+	const mergeStreetAddresses = useMemo(() => {
+	if (selectedReportsForMerge.length !== 2) return { a: '', b: '' }
+	const [a, b] = selectedReportsForMerge
+	return {
+	a: a?.street_address ?? 'Not specified',
+	b: b?.street_address ?? 'Not specified',
+	}
+	}, [selectedReportsForMerge])
+
+  const mergeCategoryMismatch = useMemo(() => {
+    if (selectedReportsForMerge.length !== 2) return false
+    const [a, b] = selectedReportsForMerge
+    const aCat = (a?.category_id ?? '').toString()
+    const bCat = (b?.category_id ?? '').toString()
+    return aCat !== bCat
+  }, [selectedReportsForMerge])
+
+  const mergeCategories = useMemo(() => {
+    if (selectedReportsForMerge.length !== 2) return { a: '', b: '' }
+    const [a, b] = selectedReportsForMerge
+    return {
+      a: getCategoryName(a?.category_id) ?? 'Not specified',
+      b: getCategoryName(b?.category_id) ?? 'Not specified',
+    }
+  }, [selectedReportsForMerge])
+
+	const canMergeSelectedReports = selectedReportIdsForMerge.size === 2
+	const mergeSelectionLimitReached = selectedReportIdsForMerge.size >= 2
+	const mergeSelectionCount = selectedReportIdsForMerge.size
+	const mergeButtonLabel = canMergeSelectedReports ? "Merge Selected" : `Merge Selected (${mergeSelectionCount}/2)`
+
+	const toggleMergeSelection = (report: Report, forceSelect?: boolean) => {
+		if (isReportArchived(report)) return
+
+		setSelectedReportIdsForMerge((prev) => {
+			const next = new Set(prev)
+			const isCurrentlySelected = next.has(report.id)
+			const shouldSelect = forceSelect ?? !isCurrentlySelected
+
+			if (shouldSelect) {
+				if (isCurrentlySelected || next.size >= 2) {
+					return prev
+				}
+				next.add(report.id)
+			} else {
+				if (!isCurrentlySelected) {
+					return prev
+				}
+				next.delete(report.id)
+			}
+
+			return next
+		})
+	}
+
+	const clearMergeSelection = () => {
+		setSelectedReportIdsForMerge(new Set())
+		setMergePrimaryId(null)
+		setMergeError(null)
+	}
+
+	const openMergeDialog = () => {
+		if (!canMergeSelectedReports) return
+		setMergePrimaryId(selectedReportsForMerge[0]?.id ?? null)
+		setMergeError(null)
+		setIsMergeDialogOpen(true)
+		// Open mismatch dialog if there are mismatches
+		if (mergeStreetAddressMismatch || mergeCategoryMismatch) {
+			setIsMismatchDialogOpen(true)
+		}
+	}
+
+	const handleConfirmMerge = async () => {
+		if (!mergePrimaryId || selectedReportsForMerge.length !== 2) {
+			setMergeError("Select two reports before merging.")
+			return
+		}
+
+		const primaryReport = selectedReportsForMerge.find((report) => report.id === mergePrimaryId)
+		const secondaryReport = selectedReportsForMerge.find((report) => report.id !== mergePrimaryId)
+
+		if (!primaryReport || !secondaryReport) {
+			setMergeError("Could not determine which reports to merge.")
+			return
+		}
+
+		setIsMerging(true)
+		setMergeError(null)
+
+		try {
+			const client = getDispatchClient()
+
+			const primaryAttachments = Array.isArray(primaryReport.attachments) ? primaryReport.attachments : []
+			const secondaryAttachments = Array.isArray(secondaryReport.attachments) ? secondaryReport.attachments : []
+			const mergedAttachments = Array.from(new Set([...primaryAttachments, ...secondaryAttachments]))
+
+			if (mergedAttachments.length !== primaryAttachments.length) {
+				const updateResult = await client.updateReport(primaryReport.id, { attachments: mergedAttachments })
+				if (updateResult.error) {
+					throw new Error(updateResult.error.message || "Failed to merge attachments.")
+				}
+			}
+
+			if (secondaryReport.reporter_id) {
+				const witnessHelper =
+					typeof (client as any).addToWitness === "function"
+						? (client as any).addToWitness.bind(client)
+						: client.addWitnessToReport?.bind(client)
+
+				if (!witnessHelper) {
+					throw new Error("Witness helper not available.")
+				}
+
+				const witnessResult = await witnessHelper(
+					primaryReport.id,
+					secondaryReport.reporter_id,
+					secondaryReport.what_happened ?? null,
+				)
+
+				if (witnessResult?.error) {
+					throw new Error(witnessResult.error.message || "Failed to add witness.")
+				}
+			}
+
+			const archiveResult = await client.archiveReport(secondaryReport.id)
+			if (archiveResult.error) {
+				throw new Error(archiveResult.error.message || "Failed to archive merged report.")
+			}
+
+			// Ensure the archived report is marked as archived
+			const updateArchivedResult = await client.updateReport(secondaryReport.id, { is_archived: true })
+			if (updateArchivedResult.error) {
+				throw new Error(updateArchivedResult.error.message || "Failed to mark report as archived.")
+			}
+
+			const statusUpdateResult = await client.updateReport(secondaryReport.id, { status: "cancelled", is_archived: true })
+			if (statusUpdateResult.error) {
+				throw new Error(statusUpdateResult.error.message || "Failed to set merged report status to cancelled.")
+			}
+
+			setArchivedIds((prev) => {
+				const next = new Set(prev)
+				next.add(secondaryReport.id.toString())
+				return next
+			})
+
+			clearMergeSelection()
+			setIsMergeDialogOpen(false)
+		} catch (error) {
+			console.error("Failed to merge reports:", error)
+			setMergeError(error instanceof Error ? error.message : "Failed to merge reports.")
+		} finally {
+			setIsMerging(false)
+		}
+	}
+
+	// Mirror the table's horizontal scroll at the top helper scrollbar
+	// Mirror the table's horizontal scroll area to a helper scrollbar anchored at the card's header
+	// Keep the helper scrollbar in sync with the table and hide the built-in horizontal bar.
+	useEffect(() => {
+		setSelectedReportIdsForMerge((prev) => {
+			if (prev.size === 0) return prev
+
+			let changed = false
+			const next = new Set<number>()
+
+			prev.forEach((id) => {
+				const report = reports.find((candidate) => candidate.id === id)
+				if (report && !isReportArchived(report)) {
+					next.add(id)
+				} else {
+					changed = true
+				}
+			})
+
+			return changed ? next : prev
+		})
+	}, [reports, isReportArchived])
+
+	useEffect(() => {
+		if (!canMergeSelectedReports) {
+			setMergePrimaryId(null)
+			return
+		}
+
+		if (mergePrimaryId && selectedReportIdsForMerge.has(mergePrimaryId)) {
+			return
+		}
+
+		const [firstId] = Array.from(selectedReportIdsForMerge)
+		setMergePrimaryId(firstId ?? null)
+	}, [canMergeSelectedReports, mergePrimaryId, selectedReportIdsForMerge])
+
+	useEffect(() => {
+		if (!canMergeSelectedReports && !isMerging && isMergeDialogOpen) {
+			setIsMergeDialogOpen(false)
+		}
+	}, [canMergeSelectedReports, isMerging, isMergeDialogOpen])
 
 	const generateReportTitle = () => {
 		let title = "Incident Report - "
@@ -469,20 +732,6 @@ export default function IncidentsPage() {
 		)
 	}
 
-	// Helper functions to get category and subcategory names
-	const getCategoryName = (categoryId?: number | null) => {
-		if (!categoryId || !categories) return "Unknown Category"
-		const category = categories.find(cat => cat.id === categoryId)
-		return category?.name || "Unknown Category"
-	}
-
-	const getSubcategoryName = (categoryId?: number | null, subcategoryIndex?: number | null) => {
-		if (!categoryId || subcategoryIndex === null || subcategoryIndex === undefined || !categories) return "Unknown Subcategory"
-		const category = categories.find(cat => cat.id === categoryId)
-		if (!category?.sub_categories || subcategoryIndex >= category.sub_categories.length) return "Unknown Subcategory"
-		return category.sub_categories[subcategoryIndex] || "Unknown Subcategory"
-	}
-
 	// Get subcategories for the selected category
 	const getSubcategoriesForCategory = (categoryId: string) => {
 		if (categoryId === "all" || !categories) return []
@@ -497,13 +746,9 @@ export default function IncidentsPage() {
 	}
 
 
-	const visibleReports = reports.filter((r) => {
-		const isArchivedFlag = Boolean(r.is_archived)
-		const isArchivedStatus = r.status === 'archived'
-		const isLocallyArchived = archivedIds.has(r.id.toString())
-		const isArchived = isArchivedFlag || isArchivedStatus || isLocallyArchived
-		return includeArchived ? true : !isArchived
-	})
+	const visibleReports = reports.filter((report) =>
+		includeArchived ? true : !isReportArchived(report),
+	)
 
 	// Helpers to parse YYYY-MM-DD as LOCAL dates (avoid UTC shift)
 	const isIsoDateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
@@ -648,6 +893,73 @@ export default function IncidentsPage() {
 		return 0
 	})
 
+	useEffect(() => {
+		const top = topScrollRef.current
+		const topContent = topScrollContentRef.current
+		const scrollable = tableWrapperRef.current
+		const tableEl = tableElementRef.current
+
+		if (!top || !topContent || !scrollable) return
+
+		scrollable.setAttribute("data-hide-scrollbar", "true")
+		scrollable.style.setProperty("scrollbar-width", "none")
+		scrollable.style.setProperty("-ms-overflow-style", "none")
+
+		const updateWidth = () => {
+			const width = tableEl ? tableEl.scrollWidth : scrollable.scrollWidth
+			const nextWidth = Math.max(width, scrollable.clientWidth)
+			topContent.style.width = `${nextWidth}px`
+		}
+
+		updateWidth()
+		top.scrollLeft = scrollable.scrollLeft ?? 0
+
+		let resizeObserver: ResizeObserver | null = null
+		if (typeof ResizeObserver !== "undefined") {
+			resizeObserver = new ResizeObserver(updateWidth)
+			resizeObserver.observe(scrollable)
+			if (tableEl) {
+				resizeObserver.observe(tableEl)
+			}
+		} else {
+			window.addEventListener("resize", updateWidth)
+		}
+
+		let isSyncingFromTop = false
+		let isSyncingFromTable = false
+
+		const handleTopScroll = () => {
+			if (isSyncingFromTop) {
+				isSyncingFromTop = false
+				return
+			}
+			isSyncingFromTable = true
+			scrollable.scrollLeft = top.scrollLeft
+		}
+
+		const handleTableScroll = () => {
+			if (isSyncingFromTable) {
+				isSyncingFromTable = false
+				return
+			}
+			isSyncingFromTop = true
+			top.scrollLeft = scrollable.scrollLeft
+		}
+
+		top.addEventListener("scroll", handleTopScroll)
+		scrollable.addEventListener("scroll", handleTableScroll)
+
+		return () => {
+			top.removeEventListener("scroll", handleTopScroll)
+			scrollable.removeEventListener("scroll", handleTableScroll)
+			if (resizeObserver) {
+				resizeObserver.disconnect()
+			} else {
+				window.removeEventListener("resize", updateWidth)
+			}
+		}
+	}, [loading, sortedIncidents.length])
+
 	const handleSort = (field: keyof Report) => {
 		if (sortField === field) {
 			setSortDirection(sortDirection === "asc" ? "desc" : "asc")
@@ -676,16 +988,20 @@ export default function IncidentsPage() {
 	type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled" | "unresolved"
 	const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
 	const [editedPoliceNotes, setEditedPoliceNotes] = useState<string>("")
+	const [editedCategory, setEditedCategory] = useState<number | null>(null)
+	const [editedSubcategory, setEditedSubcategory] = useState<number | null>(null)
 	const [saving, setSaving] = useState(false)
 	const [updateError, setUpdateError] = useState<string | null>(null)
 
 	const handleSaveStatus = async () => {
 		if (!selectedReport) return
-		
+
 		const statusChanged = editedStatus !== (selectedReport.status ?? 'pending')
 		const policeNotesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
-		
-		if (!statusChanged && !policeNotesChanged) {
+		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
+		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
+
+		if (!statusChanged && !policeNotesChanged && !categoryChanged && !subcategoryChanged) {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			return
@@ -712,6 +1028,12 @@ export default function IncidentsPage() {
 		if (policeNotesChanged && (editedStatus === 'resolved' || selectedReport.status === 'resolved')) {
 			updateData.police_notes = editedPoliceNotes
 		}
+		if (categoryChanged) {
+			updateData.category_id = editedCategory
+		}
+		if (subcategoryChanged) {
+			updateData.sub_category = editedSubcategory
+		}
 
 			const result = await client.updateReport(selectedReport.id, updateData)
 			if (result.error) {
@@ -731,6 +1053,8 @@ export default function IncidentsPage() {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			setEditedPoliceNotes("")
+			setEditedCategory(null)
+			setEditedSubcategory(null)
 		} catch (err) {
 			console.error("Failed to update status", err)
 			setUpdateError(err instanceof Error ? err.message : 'Failed to update status')
@@ -739,10 +1063,20 @@ export default function IncidentsPage() {
 		}
 	}
 
-	const saveDisabled = saving || !!(selectedReport && editedStatus === ((selectedReport.status ?? 'pending') as ReportStatus) && editedPoliceNotes === (selectedReport.police_notes ?? ""))
+	const hasChanges = useMemo(() => {
+		if (!selectedReport) return false
+		const statusChanged = editedStatus !== (selectedReport.status ?? 'pending')
+		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
+		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
+		const notesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
+		return statusChanged || categoryChanged || subcategoryChanged || notesChanged
+	}, [editedStatus, editedCategory, editedSubcategory, editedPoliceNotes, selectedReport])
+
+	const saveDisabled = saving || !hasChanges
 
 	return (
-		<div className="flex flex-col">
+		<>
+			<div className="flex flex-col">
 			<Header title="Incident Management" />
 
 			<div className="flex-1 space-y-6 p-6">
@@ -915,6 +1249,33 @@ export default function IncidentsPage() {
 										<span className="text-sm text-muted-foreground">Show archived</span>
 									</div>
 
+									{/* Merge Actions */}
+									<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+										<Button
+											onClick={openMergeDialog}
+											disabled={!canMergeSelectedReports}
+											className="w-full sm:w-auto"
+										>
+											<GitMerge className="mr-2 h-4 w-4" />
+											{mergeButtonLabel}
+										</Button>
+										{mergeSelectionCount > 0 && (
+											<div className="flex items-center gap-2">
+												<Badge variant="secondary" className="px-3 py-1">
+													{mergeSelectionCount}/2 selected
+												</Badge>
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={clearMergeSelection}
+													className="w-full sm:w-auto"
+												>
+													Clear
+												</Button>
+											</div>
+										)}
+									</div>
+
 									{/* Export Button */}
 									<Button
 										variant="outline"
@@ -930,172 +1291,209 @@ export default function IncidentsPage() {
 						</CardContent>
 					</Card>
 
-						{/* Incidents Table */}
-						<Card>
-							<CardHeader>
-								<CardTitle>
-									Incidents ({filteredIncidents.length})
-								</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<Table>
-									<TableHeader>
-										<TableRow>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("id")}
-											>
-												<div className="flex items-center gap-2">
-													ID
-													{getSortIcon("id")}
-												</div>
-											</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("incident_title")}
-											>
-												<div className="flex items-center gap-2">
-													Title
-													{getSortIcon("incident_title")}
-												</div>
-											</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("category_id")}
-											>
-												<div className="flex items-center gap-2">
-													Category
-													{getSortIcon("category_id")}
-												</div>
-											</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("incident_date")}
-											>
-												<div className="flex items-center gap-2">
-													Date & Time
-													{getSortIcon("incident_date")}
-												</div>
-											</TableHead>
-											<TableHead className="min-w-[18rem]">Location</TableHead>
-											<TableHead
-												className="cursor-pointer hover:bg-muted/50 select-none"
-												onClick={() => handleSort("status")}
-											>
-												<div className="flex items-center gap-2">
-													Status
-													{getSortIcon("status")}
-												</div>
-											</TableHead>
-											<TableHead className="text-right">Actions</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{sortedIncidents.map((report) => {
-											const isArchivedFlag = Boolean(report.is_archived)
-											const isArchivedStatus = report.status === 'archived'
-											const isLocallyArchived = archivedIds.has(report.id.toString())
-											const isArchived = isArchivedFlag || isArchivedStatus || isLocallyArchived
-											return (
-												<TableRow key={report.id} className={isArchived ? "opacity-60" : undefined}>
-													<TableCell className="font-medium">
-														#{String(report.id).slice(-8)}
-													</TableCell>
-													<TableCell>
+					{/* Incidents Table */}
+					<Card className="flex h-[680px] flex-col">
+						<CardHeader className="flex-shrink-0">
+							<CardTitle>
+								Incidents ({filteredIncidents.length})
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="flex-1 overflow-hidden p-0">
+							<div className="flex h-full flex-col">
+								<div className="flex-shrink-0 border-b bg-background">
+									<div
+										ref={topScrollRef}
+										className="h-4 overflow-x-auto overflow-y-hidden px-6 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-sm"
+										aria-hidden="true"
+									>
+										<div ref={topScrollContentRef} className="h-4" />
+									</div>
+								</div>
+								<div className="flex-1 overflow-hidden">
+									<div
+										className="h-full overflow-y-auto overflow-x-hidden p-6 [&>div]:overflow-x-auto [&>div]:overflow-y-visible [&>div]:[scrollbar-width:none] [&>div]:[-ms-overflow-style:'none']"
+									>
+										<Table ref={tableRefCallback}>
+											<TableHeader>
+												<TableRow>
+													<TableHead className="w-[60px] text-center">
+														Merge
+													</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("id")}
+													>
 														<div className="flex items-center gap-2">
-															<AlertTriangle className="h-4 w-4 text-red-500" />
-															<span className="font-medium">{report.incident_title}</span>
+															ID
+															{getSortIcon("id")}
 														</div>
-													</TableCell>
-													<TableCell>
-														<div>
-															<div className="font-medium">{getCategoryName(report.category_id)}</div>
-															{report.sub_category !== null && report.sub_category !== undefined && (
-																<div className="text-xs text-muted-foreground">
-																	{getSubcategoryName(report.category_id, report.sub_category)}
-																</div>
-															)}
+													</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("incident_title")}
+													>
+														<div className="flex items-center gap-2">
+															Title
+															{getSortIcon("incident_title")}
 														</div>
-													</TableCell>
-													<TableCell>
-														<div className="flex items-center gap-1 text-sm">
-															<Calendar className="h-3 w-3 text-muted-foreground" />
-															{report.incident_date}
+													</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("category_id")}
+													>
+														<div className="flex items-center gap-2">
+															Category
+															{getSortIcon("category_id")}
 														</div>
-														<div className="text-xs text-muted-foreground">
-															{report.incident_time}
+													</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("incident_date")}
+													>
+														<div className="flex items-center gap-2">
+															Date & Time
+															{getSortIcon("incident_date")}
 														</div>
-													</TableCell>
-													<TableCell className="min-w-[18rem]">
-														<div className="flex items-start gap-1">
-															<MapPin className="h-3 w-3 mt-1 text-muted-foreground flex-shrink-0" />
-															<span className="text-sm">
-																{report.street_address}
-																{report.nearby_landmark && ` (${report.nearby_landmark})`}
-															</span>
+													</TableHead>
+													<TableHead className="min-w-[18rem]">Location</TableHead>
+													<TableHead
+														className="cursor-pointer hover:bg-muted/50 select-none"
+														onClick={() => handleSort("status")}
+													>
+														<div className="flex items-center gap-2">
+															Status
+															{getSortIcon("status")}
 														</div>
-													</TableCell>
-													<TableCell>{getStatusBadge(report.status)}</TableCell>
-													<TableCell>
-														<div className="flex justify-end gap-2">
-															<Button
-																variant="ghost"
-																size="icon"
-																disabled={isArchived}
-																title={isArchived ? "Disabled for archived reports" : "View details"}
-																onClick={() => {
-																	setSelectedReportForDetail(report)
-																	setIsDetailDialogOpen(true)
-																}}
-															>
-																<Eye className="h-4 w-4" />
-															</Button>
-															<Button
-																variant="ghost"
-																size="icon"
-																onClick={() => {
-																	setSelectedReportForAssignment(report)
-																	setSelectedOfficers(new Set())
-																	setOfficerSearchQuery("")
-																	setIsAssignDialogOpen(true)
-																}}
-																title={
-																	report.status === 'resolved'
-																		? "Cannot assign to resolved report"
-																		: report.status === 'cancelled'
-																			? "Cannot assign to cancelled report"
-																			: "Assign officers"
-																}
-																disabled={isArchived || report.status === 'resolved' || report.status === 'cancelled'}
-															>
-																<UserPlus className="h-4 w-4" />
-															</Button>
-															<Button variant="ghost" size="icon" onClick={() => {
-																setSelectedReport(report)
-																setEditedStatus((report.status ?? "pending") as ReportStatus)
-																setEditedPoliceNotes(report.police_notes ?? "")
-																setIsEditOpen(true)
-															}} title="Edit status" disabled={isArchived}>
-																<Edit className="h-4 w-4" />
-															</Button>
-															<Button
-																variant="ghost"
-																size="icon"
-																title="Archive"
-																onClick={() => setConfirmArchiveReport(report)}
-																disabled={isArchived || report.status !== 'resolved'}
-															>
-																<Archive className={`h-4 w-4 ${isArchived || report.status !== 'resolved' ? 'text-gray-400' : 'text-orange-500'}`} />
-															</Button>
-														</div>
-													</TableCell>
+													</TableHead>
+													<TableHead className="text-right">Actions</TableHead>
 												</TableRow>
-											)
-										})}
-									</TableBody>
-								</Table>
-							</CardContent>
-						</Card>
+											</TableHeader>
+											<TableBody>
+												{sortedIncidents.map((report) => {
+													const isArchived = isReportArchived(report)
+													const isSelected = selectedReportIdsForMerge.has(report.id)
+													const rowClass = `${isArchived ? "opacity-60" : ""} ${isSelected ? "bg-muted/40" : ""}`.trim() || undefined
+													return (
+														<TableRow key={report.id} className={rowClass}>
+															<TableCell className="w-[60px]">
+																<div className="flex justify-center">
+																	<Checkbox
+																		checked={isSelected}
+																		onCheckedChange={(checked) => toggleMergeSelection(report, checked === true)}
+																		disabled={isArchived || (!isSelected && mergeSelectionLimitReached)}
+																		aria-label={`Select report ${report.id} for merging`}
+																	/>
+																</div>
+															</TableCell>
+															<TableCell className="font-medium">
+																#{String(report.id).slice(-8)}
+															</TableCell>
+															<TableCell>
+																<div className="flex items-center gap-2">
+																	<AlertTriangle className="h-4 w-4 text-red-500" />
+																	<span className="font-medium">{report.incident_title}</span>
+																</div>
+															</TableCell>
+															<TableCell>
+																<div>
+																	<div className="font-medium">{getCategoryName(report.category_id)}</div>
+																	{report.sub_category !== null && report.sub_category !== undefined && (
+																		<div className="text-xs text-muted-foreground">
+																			{getSubcategoryName(report.category_id, report.sub_category)}
+																		</div>
+																	)}
+																</div>
+															</TableCell>
+															<TableCell>
+																<div className="flex items-center gap-1 text-sm">
+																	<Calendar className="h-3 w-3 text-muted-foreground" />
+																	{report.incident_date}
+																</div>
+																<div className="text-xs text-muted-foreground">
+																	{report.incident_time}
+																</div>
+															</TableCell>
+															<TableCell className="min-w-[18rem]">
+																<div className="flex items-start gap-1">
+																	<MapPin className="h-3 w-3 mt-1 text-muted-foreground flex-shrink-0" />
+																	<span className="text-sm">
+																		{report.street_address}
+																		{report.nearby_landmark && ` (${report.nearby_landmark})`}
+																	</span>
+																</div>
+															</TableCell>
+															<TableCell>{getStatusBadge(report.status)}</TableCell>
+															<TableCell>
+																<div className="flex justify-end gap-2">
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		disabled={isArchived}
+																		title={isArchived ? "Disabled for archived reports" : "View details"}
+																		onClick={() => {
+																			setSelectedReportForDetail(report)
+																			setIsDetailDialogOpen(true)
+																		}}
+																	>
+																		<Eye className="h-4 w-4" />
+																	</Button>
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		onClick={() => {
+																			setSelectedReportForAssignment(report)
+																			setSelectedOfficers(new Set())
+																			setOfficerSearchQuery("")
+																			setIsAssignDialogOpen(true)
+																		}}
+																		title={
+																			report.status === 'resolved'
+																				? "Cannot assign to resolved report"
+																				: report.status === 'cancelled'
+																					? "Cannot assign to cancelled report"
+																					: "Assign officers"
+																		}
+																		disabled={isArchived || report.status === 'resolved' || report.status === 'cancelled'}
+																	>
+																		<UserPlus className="h-4 w-4" />
+																	</Button>
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		onClick={() => {
+																			setSelectedReport(report)
+																			setEditedStatus((report.status ?? "pending") as ReportStatus)
+																			setEditedPoliceNotes(report.police_notes ?? "")
+																			setEditedCategory(report.category_id ?? null)
+																			setEditedSubcategory(report.sub_category ?? null)
+																			setIsEditOpen(true)
+																		}}
+																		title="Edit"
+																		disabled={isArchived}
+																	>
+																		<Edit className="h-4 w-4" />
+																	</Button>
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		title="Archive"
+																		onClick={() => setConfirmArchiveReport(report)}
+																		disabled={isArchived || report.status !== 'resolved'}
+																	>
+																		<Archive className={`h-4 w-4 ${isArchived || report.status !== 'resolved' ? 'text-gray-400' : 'text-orange-500'}`} />
+																	</Button>
+																</div>
+															</TableCell>
+														</TableRow>
+													)
+												})}
+											</TableBody>
+										</Table>
+									</div>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 					</>
 				)}
 			</div>
@@ -1111,7 +1509,7 @@ export default function IncidentsPage() {
 			}
 		}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent>
 						{saving && (
 							<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
@@ -1124,16 +1522,63 @@ export default function IncidentsPage() {
 							</div>
 						)}
 						<DialogHeader>
-							<DialogTitle>Edit Status</DialogTitle>
+							<DialogTitle>Edit</DialogTitle>
 						</DialogHeader>
 						<div className="space-y-4">
-							<div>
-								<div className="text-sm text-muted-foreground">Report</div>
-								<div className="font-medium">{selectedReport?.incident_title}</div>
-								<div className="text-xs text-muted-foreground">#{String(selectedReport?.id ?? "").slice(-8)}</div>
-							</div>
-							<div>
-								<div className="text-sm text-muted-foreground mb-2">Status</div>
+						<div>
+						<div className="text-sm text-muted-foreground">Report</div>
+						<div className="font-medium">{selectedReport?.incident_title}</div>
+						<div className="text-xs text-muted-foreground">#{String(selectedReport?.id ?? "").slice(-8)}</div>
+						</div>
+						<div>
+						<div className="text-sm text-muted-foreground mb-2">Category</div>
+									<Select
+										value={editedCategory?.toString() ?? ""}
+										onValueChange={(value) => {
+											const catId = value ? parseInt(value, 10) : null
+											setEditedCategory(catId)
+											setEditedSubcategory(null) // Reset subcategory when category changes
+										}}
+										disabled={saving}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Select category" />
+										</SelectTrigger>
+										<SelectContent>
+											{categories?.map((category) => (
+												<SelectItem key={category.id} value={category.id.toString()}>
+													{category.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								{editedCategory !== null && categories?.find(cat => cat.id === editedCategory)?.sub_categories && categories.find(cat => cat.id === editedCategory)!.sub_categories.length > 0 && (
+									<div>
+										<div className="text-sm text-muted-foreground mb-2">Subcategory</div>
+										<Select
+											value={editedSubcategory?.toString() ?? ""}
+											onValueChange={(value) => {
+												const subId = value ? parseInt(value, 10) : null
+												setEditedSubcategory(subId)
+											}}
+											disabled={saving}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select subcategory" />
+											</SelectTrigger>
+											<SelectContent>
+												{categories.find(cat => cat.id === editedCategory)?.sub_categories.map((sub, index) => (
+													<SelectItem key={index} value={index.toString()}>
+														{sub}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+								)}
+								<div>
+									<div className="text-sm text-muted-foreground mb-2">Status</div>
 								<Select
 									value={editedStatus}
 									onValueChange={(value) => {
@@ -1187,6 +1632,8 @@ export default function IncidentsPage() {
 										setIsEditOpen(false)
 										setSelectedReport(null)
 										setEditedPoliceNotes("")
+										setEditedCategory(null)
+										setEditedSubcategory(null)
 										setShowCancelConfirm(false)
 									}
 								}}
@@ -1204,7 +1651,7 @@ export default function IncidentsPage() {
 								</Button>
 							) : (
 								<Button onClick={handleSaveStatus} disabled={saveDisabled}>
-									{saving ? "Saving..." : (selectedReport && editedStatus === (selectedReport.status ?? 'pending') && editedPoliceNotes === (selectedReport.police_notes ?? "") ? 'No Changes' : 'Save')}
+									{saving ? "Saving..." : hasChanges ? 'Save' : 'No Changes'}
 								</Button>
 							)}
 						</DialogFooter>
@@ -1224,7 +1671,7 @@ export default function IncidentsPage() {
 				}
 			}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="max-w-2xl">
 						<DialogHeader>
 							<DialogTitle>Assign Officers to Report</DialogTitle>
@@ -1499,7 +1946,157 @@ export default function IncidentsPage() {
 				</DialogPortal>
 			</Dialog>
 
-			{/* Witness Statement Dialog */}
+			{/* Merge Reports Dialog */}
+			<Dialog
+				open={isMergeDialogOpen}
+				onOpenChange={(open) => {
+					if (!open && isMerging) return
+					setIsMergeDialogOpen(open)
+					if (!open) {
+						setMergeError(null)
+						setMergePrimaryId(null)
+					}
+				}}
+			>
+				<DialogPortal>
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
+					<DialogContent className="sm:max-w-2xl">
+						<DialogHeader>
+							<DialogTitle>Merge Reports</DialogTitle>
+						</DialogHeader>
+						{selectedReportsForMerge.length !== 2 ? (
+							<div className="text-sm text-muted-foreground">
+								Select exactly two reports to merge.
+							</div>
+						) : (
+							<div className="space-y-4">
+								<p className="text-sm text-muted-foreground">
+									Choose the report to keep. The other report will be archived, its reporter added as a witness, and its attachments copied over.
+								</p>
+								<div className="grid gap-3 md:grid-cols-2">
+								{selectedReportsForMerge.map((report) => {
+								const isPrimary = mergePrimaryId === report.id
+								const attachmentsCount = Array.isArray(report.attachments) ? report.attachments.length : 0
+								return (
+								<button
+								type="button"
+								key={report.id}
+								onClick={() => setMergePrimaryId(report.id)}
+								className={`rounded-md border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${isPrimary ? "border-primary bg-primary/5 ring-2 ring-primary/40" : "border-border hover:border-primary/60"}`}
+								>
+								<div className="flex items-center justify-between text-sm font-medium">
+								<span>#{String(report.id).slice(-8)}</span>
+								<Badge variant={isPrimary ? "success" : "outline"} className="uppercase">
+								{isPrimary ? "Main" : "Will Archive"}
+								</Badge>
+								</div>
+								<div className="mt-2 font-semibold">
+								{report.incident_title || "Untitled incident"}
+								</div>
+								{report.street_address && (
+								<div className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
+								<MapPin className="mt-0.5 h-3.5 w-3.5" />
+								<span>{report.street_address}</span>
+								</div>
+								)}
+								<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+								<Calendar className="h-3.5 w-3.5" />
+								<span>{report.incident_date || "No date"}</span>
+								{report.incident_time && <span>{report.incident_time}</span>}
+								</div>
+								{report.description && (
+								<p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+								{report.description}
+								</p>
+								)}
+								<div className="mt-3 flex items-center justify-end text-xs text-muted-foreground">
+								<span>{attachmentsCount} attachment{attachmentsCount === 1 ? "" : "s"}</span>
+								</div>
+								</button>
+								)
+								})}
+								</div>
+								{(mergeStreetAddressMismatch || mergeCategoryMismatch) && (
+								<div className="flex justify-center mt-4">
+								 <Button
+								  variant="outline"
+								 onClick={() => setIsMismatchDialogOpen(true)}
+								className="text-red-600 border-red-300 hover:bg-red-50"
+								>
+								<AlertTriangle className="mr-2 h-4 w-4" />
+								Review Mismatches
+								</Button>
+								</div>
+								)}
+								{mergeError && (
+									<div className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-600">
+										{mergeError}
+									</div>
+								)}
+							</div>
+						)}
+						<DialogFooter>
+							<Button
+								variant="outline"
+								onClick={() => {
+									if (isMerging) return
+									setIsMergeDialogOpen(false)
+									setMergeError(null)
+									setMergePrimaryId(null)
+								}}
+								disabled={isMerging}
+							>
+								Cancel
+							</Button>
+							<Button
+								onClick={handleConfirmMerge}
+								disabled={isMerging || !mergePrimaryId || selectedReportsForMerge.length !== 2}
+							>
+								{isMerging ? "Merging..." : "Merge Reports"}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</DialogPortal>
+			</Dialog>
+
+			{/* Mismatch Warnings Dialog */}
+				<Dialog open={isMismatchDialogOpen} onOpenChange={setIsMismatchDialogOpen}>
+					<DialogPortal>
+						<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
+						<DialogContent className="fixed right-4 top-1/4 max-w-sm -translate-y-1/4">
+							<DialogHeader>
+								<DialogTitle>Mismatch Warnings</DialogTitle>
+							</DialogHeader>
+							<div className="space-y-4">
+								{mergeStreetAddressMismatch && (
+									<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
+										<div className="font-medium mb-1">Address Mismatch</div>
+										<div>Selected reports have different street addresses:</div>
+										<div className="mt-2">
+											<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeStreetAddresses.a}</div>
+											<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeStreetAddresses.b}</div>
+										</div>
+									</div>
+								)}
+								{mergeCategoryMismatch && (
+									<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
+										<div className="font-medium mb-1">Category Mismatch</div>
+										<div>Selected reports have different categories:</div>
+										<div className="mt-2">
+											<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeCategories.a}</div>
+											<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeCategories.b}</div>
+										</div>
+									</div>
+								)}
+							</div>
+							<DialogFooter>
+								<Button onClick={() => setIsMismatchDialogOpen(false)}>Close</Button>
+							</DialogFooter>
+						</DialogContent>
+					</DialogPortal>
+				</Dialog>
+
+				{/* Witness Statement Dialog */}
 			<Dialog open={isWitnessDialogOpen} onOpenChange={(open) => {
 				setIsWitnessDialogOpen(open)
 				if (!open) {
@@ -1507,7 +2104,7 @@ export default function IncidentsPage() {
 				}
 			}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="sm:max-w-lg">
 						<DialogHeader>
 							<DialogTitle>Witness Statement</DialogTitle>
@@ -1554,7 +2151,7 @@ export default function IncidentsPage() {
 				}
 			}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
 						<DialogHeader>
 							<DialogTitle>Report Details</DialogTitle>
@@ -1919,7 +2516,7 @@ export default function IncidentsPage() {
 				}
 			}}>
 				<DialogPortal>
-					<DialogOverlay />
+					<DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
 					<DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
 						<DialogHeader>
 							<DialogTitle>{viewerFilename || 'Attachment'}</DialogTitle>
@@ -1990,9 +2587,14 @@ export default function IncidentsPage() {
 								const client = getDispatchClient()
 								const result = await client.archiveReport(confirmArchiveReport.id)
 								if (result.error) {
-									console.error("Failed to archive report:", result.error)
-									return
+								console.error("Failed to archive report:", result.error)
+								return
 								}
+				// Ensure is_archived is set
+				const updateResult = await client.updateReport(confirmArchiveReport.id, { is_archived: true })
+				if (updateResult.error) {
+					console.error("Failed to set is_archived:", updateResult.error)
+				}
 								setArchivedIds((prev) => new Set(prev).add(confirmArchiveReport.id.toString()))
 								setConfirmArchiveReport(null)
 							} catch (e) {
@@ -2004,7 +2606,12 @@ export default function IncidentsPage() {
 					</div>
 				</DialogContent>
 			</Dialog>
-
-		</div >
+			</div>
+			<style jsx>{`
+				[data-hide-scrollbar="true"]::-webkit-scrollbar {
+					display: none;
+				}
+			`}</style>
+		</>
 	)
 }
