@@ -84,6 +84,7 @@ export default function IncidentsPage() {
 	const [mergePrimaryId, setMergePrimaryId] = useState<number | null>(null)
 	const [mergeError, setMergeError] = useState<string | null>(null)
 	const [isMerging, setIsMerging] = useState(false)
+	const [isMismatchDialogOpen, setIsMismatchDialogOpen] = useState(false)
 
 	const isReportArchived = useCallback((report: Report) => {
 		const isArchivedFlag = Boolean(report.is_archived)
@@ -186,6 +187,10 @@ export default function IncidentsPage() {
 		setMergePrimaryId(selectedReportsForMerge[0]?.id ?? null)
 		setMergeError(null)
 		setIsMergeDialogOpen(true)
+		// Open mismatch dialog if there are mismatches
+		if (mergeStreetAddressMismatch || mergeCategoryMismatch) {
+			setIsMismatchDialogOpen(true)
+		}
 	}
 
 	const handleConfirmMerge = async () => {
@@ -1776,68 +1781,60 @@ export default function IncidentsPage() {
 									Choose the report to keep. The other report will be archived, its reporter added as a witness, and its attachments copied over.
 								</p>
 								<div className="grid gap-3 md:grid-cols-2">
-									{selectedReportsForMerge.map((report) => {
-										const isPrimary = mergePrimaryId === report.id
-										const attachmentsCount = Array.isArray(report.attachments) ? report.attachments.length : 0
-										return (
-											<button
-												type="button"
-												key={report.id}
-												onClick={() => setMergePrimaryId(report.id)}
-												className={`rounded-md border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${isPrimary ? "border-primary bg-primary/5 ring-2 ring-primary/40" : "border-border hover:border-primary/60"}`}
-											>
-												<div className="flex items-center justify-between text-sm font-medium">
-													<span>#{String(report.id).slice(-8)}</span>
-													<Badge variant={isPrimary ? "success" : "outline"} className="uppercase">
-														{isPrimary ? "Main" : "Will Archive"}
-													</Badge>
-												</div>
-												<div className="mt-2 font-semibold">
-													{report.incident_title || "Untitled incident"}
-												</div>
-												{report.street_address && (
-													<div className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
-														<MapPin className="mt-0.5 h-3.5 w-3.5" />
-														<span>{report.street_address}</span>
-													</div>
-												)}
-												<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-													<Calendar className="h-3.5 w-3.5" />
-													<span>{report.incident_date || "No date"}</span>
-													{report.incident_time && <span>{report.incident_time}</span>}
-												</div>
-												{report.description && (
-													<p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
-														{report.description}
-													</p>
-												)}
-												<div className="mt-3 flex items-center justify-end text-xs text-muted-foreground">
-													<span>{attachmentsCount} attachment{attachmentsCount === 1 ? "" : "s"}</span>
-												</div>
-											</button>
-										)
-									})}
+								{selectedReportsForMerge.map((report) => {
+								const isPrimary = mergePrimaryId === report.id
+								const attachmentsCount = Array.isArray(report.attachments) ? report.attachments.length : 0
+								return (
+								<button
+								type="button"
+								key={report.id}
+								onClick={() => setMergePrimaryId(report.id)}
+								className={`rounded-md border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${isPrimary ? "border-primary bg-primary/5 ring-2 ring-primary/40" : "border-border hover:border-primary/60"}`}
+								>
+								<div className="flex items-center justify-between text-sm font-medium">
+								<span>#{String(report.id).slice(-8)}</span>
+								<Badge variant={isPrimary ? "success" : "outline"} className="uppercase">
+								{isPrimary ? "Main" : "Will Archive"}
+								</Badge>
 								</div>
-								{mergeStreetAddressMismatch && (
-								<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
-								<div className="font-medium mb-1">Address Mismatch</div>
-								<div>Selected reports have different street addresses:</div>
-								<div className="mt-2">
-								<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeStreetAddresses.a}</div>
-								<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeStreetAddresses.b}</div>
+								<div className="mt-2 font-semibold">
+								{report.incident_title || "Untitled incident"}
 								</div>
+								{report.street_address && (
+								<div className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
+								<MapPin className="mt-0.5 h-3.5 w-3.5" />
+								<span>{report.street_address}</span>
 								</div>
 								)}
-				{mergeCategoryMismatch && (
-					<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
-						<div className="font-medium mb-1">Category Mismatch</div>
-						<div>Selected reports have different categories:</div>
-						<div className="mt-2">
-							<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeCategories.a}</div>
-							<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeCategories.b}</div>
-						</div>
-					</div>
-				)}
+								<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+								<Calendar className="h-3.5 w-3.5" />
+								<span>{report.incident_date || "No date"}</span>
+								{report.incident_time && <span>{report.incident_time}</span>}
+								</div>
+								{report.description && (
+								<p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+								{report.description}
+								</p>
+								)}
+								<div className="mt-3 flex items-center justify-end text-xs text-muted-foreground">
+								<span>{attachmentsCount} attachment{attachmentsCount === 1 ? "" : "s"}</span>
+								</div>
+								</button>
+								)
+								})}
+								</div>
+								{(mergeStreetAddressMismatch || mergeCategoryMismatch) && (
+								<div className="flex justify-center mt-4">
+								 <Button
+								  variant="outline"
+								 onClick={() => setIsMismatchDialogOpen(true)}
+								className="text-red-600 border-red-300 hover:bg-red-50"
+								>
+								<AlertTriangle className="mr-2 h-4 w-4" />
+								Review Mismatches
+								</Button>
+								</div>
+								)}
 								{mergeError && (
 									<div className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-600">
 										{mergeError}
@@ -1869,7 +1866,44 @@ export default function IncidentsPage() {
 				</DialogPortal>
 			</Dialog>
 
-			{/* Witness Statement Dialog */}
+			{/* Mismatch Warnings Dialog */}
+				<Dialog open={isMismatchDialogOpen} onOpenChange={setIsMismatchDialogOpen}>
+					<DialogPortal>
+						<DialogOverlay />
+						<DialogContent className="fixed right-4 top-1/4 max-w-sm -translate-y-1/4">
+							<DialogHeader>
+								<DialogTitle>Mismatch Warnings</DialogTitle>
+							</DialogHeader>
+							<div className="space-y-4">
+								{mergeStreetAddressMismatch && (
+									<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
+										<div className="font-medium mb-1">Address Mismatch</div>
+										<div>Selected reports have different street addresses:</div>
+										<div className="mt-2">
+											<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeStreetAddresses.a}</div>
+											<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeStreetAddresses.b}</div>
+										</div>
+									</div>
+								)}
+								{mergeCategoryMismatch && (
+									<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
+										<div className="font-medium mb-1">Category Mismatch</div>
+										<div>Selected reports have different categories:</div>
+										<div className="mt-2">
+											<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeCategories.a}</div>
+											<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeCategories.b}</div>
+										</div>
+									</div>
+								)}
+							</div>
+							<DialogFooter>
+								<Button onClick={() => setIsMismatchDialogOpen(false)}>Close</Button>
+							</DialogFooter>
+						</DialogContent>
+					</DialogPortal>
+				</Dialog>
+
+				{/* Witness Statement Dialog */}
 			<Dialog open={isWitnessDialogOpen} onOpenChange={(open) => {
 				setIsWitnessDialogOpen(open)
 				if (!open) {
