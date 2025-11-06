@@ -972,7 +972,16 @@ export default function IncidentsPage() {
 		}
 	}
 
-	const saveDisabled = saving || !!(selectedReport && editedStatus === ((selectedReport.status ?? 'pending') as ReportStatus) && editedPoliceNotes === (selectedReport.police_notes ?? "") && editedCategory === (selectedReport.category_id ?? null) && editedSubcategory === (selectedReport.sub_category ?? null))
+	const hasChanges = useMemo(() => {
+		if (!selectedReport) return false
+		const statusChanged = editedStatus !== (selectedReport.status ?? 'pending')
+		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
+		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
+		const notesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
+		return statusChanged || categoryChanged || subcategoryChanged || notesChanged
+	}, [editedStatus, editedCategory, editedSubcategory, editedPoliceNotes, selectedReport])
+
+	const saveDisabled = saving || !hasChanges
 
 	return (
 		<div className="flex flex-col">
@@ -1527,7 +1536,7 @@ export default function IncidentsPage() {
 								</Button>
 							) : (
 								<Button onClick={handleSaveStatus} disabled={saveDisabled}>
-									{saving ? "Saving..." : (selectedReport && editedStatus === (selectedReport.status ?? 'pending') && editedPoliceNotes === (selectedReport.police_notes ?? "") ? 'No Changes' : 'Save')}
+									{saving ? "Saving..." : hasChanges ? 'Save' : 'No Changes'}
 								</Button>
 							)}
 						</DialogFooter>
