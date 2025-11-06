@@ -98,6 +98,23 @@ export default function IncidentsPage() {
 		return reports.filter((report) => selectedReportIdsForMerge.has(report.id))
 	}, [reports, selectedReportIdsForMerge])
 
+	const mergeStreetAddressMismatch = useMemo(() => {
+		if (selectedReportsForMerge.length !== 2) return false
+		const [a, b] = selectedReportsForMerge
+		const aAddr = (a?.street_address ?? '').trim().toLowerCase()
+		const bAddr = (b?.street_address ?? '').trim().toLowerCase()
+		return aAddr !== bAddr
+	}, [selectedReportsForMerge])
+
+	const mergeStreetAddresses = useMemo(() => {
+		if (selectedReportsForMerge.length !== 2) return { a: '', b: '' }
+		const [a, b] = selectedReportsForMerge
+		return {
+			a: a?.street_address ?? 'Not specified',
+			b: b?.street_address ?? 'Not specified',
+		}
+	}, [selectedReportsForMerge])
+
 	const canMergeSelectedReports = selectedReportIdsForMerge.size === 2
 	const mergeSelectionLimitReached = selectedReportIdsForMerge.size >= 2
 	const mergeSelectionCount = selectedReportIdsForMerge.size
@@ -1780,6 +1797,16 @@ export default function IncidentsPage() {
 										)
 									})}
 								</div>
+								{mergeStreetAddressMismatch && (
+									<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
+										<div className="font-medium mb-1">Address Mismatch</div>
+										<div>Selected reports have different street addresses:</div>
+										<div className="mt-2">
+											<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeStreetAddresses.a}</div>
+											<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeStreetAddresses.b}</div>
+										</div>
+									</div>
+								)}
 								{mergeError && (
 									<div className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-600">
 										{mergeError}
