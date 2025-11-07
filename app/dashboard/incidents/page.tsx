@@ -135,43 +135,38 @@ export default function IncidentsPage() {
 	}, [reports, selectedReportIdsForMerge])
 
 	const mergeStreetAddressMismatch = useMemo(() => {
-		if (selectedReportsForMerge.length !== 2) return false
-		const [a, b] = selectedReportsForMerge
-		const aAddr = (a?.street_address ?? '').trim().toLowerCase()
-		const bAddr = (b?.street_address ?? '').trim().toLowerCase()
-		return aAddr !== bAddr
+		if (selectedReportsForMerge.length < 2) return false
+		const addresses = selectedReportsForMerge.map(r => (r?.street_address ?? '').trim().toLowerCase())
+		const uniqueAddresses = new Set(addresses.filter(addr => addr !== ''))
+		return uniqueAddresses.size > 1
 	}, [selectedReportsForMerge])
 
 	const mergeStreetAddresses = useMemo(() => {
-	if (selectedReportsForMerge.length !== 2) return { a: '', b: '' }
-	const [a, b] = selectedReportsForMerge
-	return {
-	a: a?.street_address ?? 'Not specified',
-	b: b?.street_address ?? 'Not specified',
-	}
+		if (selectedReportsForMerge.length < 2) return []
+		return selectedReportsForMerge.map(r => ({
+			id: r.id,
+			address: r?.street_address ?? 'Not specified'
+		}))
 	}, [selectedReportsForMerge])
 
   const mergeCategoryMismatch = useMemo(() => {
-    if (selectedReportsForMerge.length !== 2) return false
-    const [a, b] = selectedReportsForMerge
-    const aCat = (a?.category_id ?? '').toString()
-    const bCat = (b?.category_id ?? '').toString()
-    return aCat !== bCat
+    if (selectedReportsForMerge.length < 2) return false
+    const categories = selectedReportsForMerge.map(r => (r?.category_id ?? '').toString())
+    const uniqueCategories = new Set(categories.filter(cat => cat !== ''))
+    return uniqueCategories.size > 1
   }, [selectedReportsForMerge])
 
   const mergeCategories = useMemo(() => {
-    if (selectedReportsForMerge.length !== 2) return { a: '', b: '' }
-    const [a, b] = selectedReportsForMerge
-    return {
-      a: getCategoryName(a?.category_id) ?? 'Not specified',
-      b: getCategoryName(b?.category_id) ?? 'Not specified',
-    }
-  }, [selectedReportsForMerge])
+    if (selectedReportsForMerge.length < 2) return []
+    return selectedReportsForMerge.map(r => ({
+      id: r.id,
+      category: getCategoryName(r?.category_id) ?? 'Not specified'
+    }))
+  }, [selectedReportsForMerge, categories])
 
-	const canMergeSelectedReports = selectedReportIdsForMerge.size === 2
-	const mergeSelectionLimitReached = selectedReportIdsForMerge.size >= 2
+	const canMergeSelectedReports = selectedReportIdsForMerge.size >= 2
 	const mergeSelectionCount = selectedReportIdsForMerge.size
-	const mergeButtonLabel = canMergeSelectedReports ? "Merge Selected" : `Merge Selected (${mergeSelectionCount}/2)`
+	const mergeButtonLabel = canMergeSelectedReports ? `Merge ${mergeSelectionCount} Selected` : `Merge Selected (${mergeSelectionCount}/2+)`
 
 	const toggleMergeSelection = (report: Report, forceSelect?: boolean) => {
 		if (isReportArchived(report)) return
@@ -182,7 +177,7 @@ export default function IncidentsPage() {
 			const shouldSelect = forceSelect ?? !isCurrentlySelected
 
 			if (shouldSelect) {
-				if (isCurrentlySelected || next.size >= 2) {
+				if (isCurrentlySelected) {
 					return prev
 				}
 				next.add(report.id)
@@ -215,15 +210,15 @@ export default function IncidentsPage() {
 	}
 
 	const handleConfirmMerge = async () => {
-		if (!mergePrimaryId || selectedReportsForMerge.length !== 2) {
-			setMergeError("Select two reports before merging.")
+		if (!mergePrimaryId || selectedReportsForMerge.length < 2) {
+			setMergeError("Select at least two reports before merging.")
 			return
 		}
 
 		const primaryReport = selectedReportsForMerge.find((report) => report.id === mergePrimaryId)
-		const secondaryReport = selectedReportsForMerge.find((report) => report.id !== mergePrimaryId)
+		const secondaryReports = selectedReportsForMerge.filter((report) => report.id !== mergePrimaryId)
 
-		if (!primaryReport || !secondaryReport) {
+		if (!primaryReport || secondaryReports.length === 0) {
 			setMergeError("Could not determine which reports to merge.")
 			return
 		}
@@ -234,9 +229,14 @@ export default function IncidentsPage() {
 		try {
 			const client = getDispatchClient()
 
+			// Collect all attachments from all secondary reports
 			const primaryAttachments = Array.isArray(primaryReport.attachments) ? primaryReport.attachments : []
-			const secondaryAttachments = Array.isArray(secondaryReport.attachments) ? secondaryReport.attachments : []
-			const mergedAttachments = Array.from(new Set([...primaryAttachments, ...secondaryAttachments]))
+			const allSecondaryAttachments: string[] = []
+			for (const secondaryReport of secondaryReports) {
+				const attachments = Array.isArray(secondaryReport.attachments) ? secondaryReport.attachments : []
+				allSecondaryAttachments.push(...attachments)
+			}
+			const mergedAttachments = Array.from(new Set([...primaryAttachments, ...allSecondaryAttachments]))
 
 			if (mergedAttachments.length !== primaryAttachments.length) {
 				const updateResult = await client.updateReport(primaryReport.id, { attachments: mergedAttachments })
@@ -245,159 +245,176 @@ export default function IncidentsPage() {
 				}
 			}
 
-			// Check if both reports have the same reporter
-			const sameReporter = primaryReport.reporter_id && secondaryReport.reporter_id && 
-				primaryReport.reporter_id === secondaryReport.reporter_id
+			// Process each secondary report
+			for (const secondaryReport of secondaryReports) {
+				// Check if both reports have the same reporter
+				const sameReporter = primaryReport.reporter_id && secondaryReport.reporter_id && 
+					primaryReport.reporter_id === secondaryReport.reporter_id
 
-			if (sameReporter) {
-				// Merge what_happened fields if they have the same reporter
-				const primaryWhatHappened = primaryReport.what_happened?.trim() ?? ""
-				const secondaryWhatHappened = secondaryReport.what_happened?.trim() ?? ""
-				
-				if (secondaryWhatHappened && primaryWhatHappened !== secondaryWhatHappened) {
-					const mergedWhatHappened = primaryWhatHappened 
-						? `${primaryWhatHappened}\n\n---\n\n${secondaryWhatHappened}`
-						: secondaryWhatHappened
+				if (sameReporter) {
+					// Merge what_happened fields if they have the same reporter
+					const primaryWhatHappened = primaryReport.what_happened?.trim() ?? ""
+					const secondaryWhatHappened = secondaryReport.what_happened?.trim() ?? ""
 					
-					const updateWhatHappenedResult = await client.updateReport(primaryReport.id, { 
-						what_happened: mergedWhatHappened 
-					})
-					if (updateWhatHappenedResult.error) {
-						throw new Error(updateWhatHappenedResult.error.message || "Failed to merge what_happened.")
-					}
-				}
-			} else if (secondaryReport.reporter_id) {
-				// Different reporters - add secondary reporter as witness
-				const witnessHelper =
-					typeof (client as any).addToWitness === "function"
-						? (client as any).addToWitness.bind(client)
-						: client.addWitnessToReport?.bind(client)
-
-				if (!witnessHelper) {
-					throw new Error("Witness helper not available.")
-				}
-
-				const witnessResult = await witnessHelper(
-					primaryReport.id,
-					secondaryReport.reporter_id,
-					secondaryReport.what_happened ?? null,
-				)
-
-				if (witnessResult?.error) {
-					throw new Error(witnessResult.error.message || "Failed to add witness.")
-				}
-			}
-
-			// Merge witnesses from secondary report into primary report
-			const primaryWitnesses = Array.isArray(primaryReport.witnesses) ? primaryReport.witnesses : []
-			const secondaryWitnesses = Array.isArray(secondaryReport.witnesses) ? secondaryReport.witnesses : []
-
-			if (secondaryWitnesses.length > 0) {
-				const witnessHelper =
-					typeof (client as any).addToWitness === "function"
-						? (client as any).addToWitness.bind(client)
-						: client.addWitnessToReport?.bind(client)
-
-				if (!witnessHelper) {
-					throw new Error("Witness helper not available.")
-				}
-
-				// Create a map of existing witnesses by user_id
-				const existingWitnessMap = new Map<string, { statement: string | null }>()
-				for (const witness of primaryWitnesses) {
-					if (isWitnessRecord(witness)) {
-						existingWitnessMap.set(witness.user_id, {
-							statement: typeof witness.statement === "string" ? witness.statement : null
-						})
-					}
-				}
-
-				// Process each witness from secondary report
-				for (const witness of secondaryWitnesses) {
-					if (!isWitnessRecord(witness)) continue
-
-					const existingWitness = existingWitnessMap.get(witness.user_id)
-					const secondaryStatement = typeof witness.statement === "string" ? witness.statement?.trim() : null
-
-					if (existingWitness) {
-						// Witness exists in primary report - merge statements if different
-						const primaryStatement = existingWitness.statement?.trim() ?? ""
+					if (secondaryWhatHappened && primaryWhatHappened !== secondaryWhatHappened) {
+						const mergedWhatHappened = primaryWhatHappened 
+							? `${primaryWhatHappened}\n\n---\n\n${secondaryWhatHappened}`
+							: secondaryWhatHappened
 						
-						if (secondaryStatement && primaryStatement !== secondaryStatement) {
-							const mergedStatement = primaryStatement 
-								? `${primaryStatement}\n\n---\n\n${secondaryStatement}`
-								: secondaryStatement
-
-							// Update the witness statement by fetching current witnesses, updating, and saving
-							const { data: currentReport, error: fetchError } = await client.supabaseClient
-								.from('reports')
-								.select('witnesses')
-								.eq('id', primaryReport.id)
-								.single()
-
-							if (fetchError) {
-								throw new Error(fetchError.message || "Failed to fetch current witnesses.")
-							}
-
-							const currentWitnesses = Array.isArray(currentReport.witnesses) ? currentReport.witnesses : []
-							const updatedWitnesses = currentWitnesses.map((w: any) => {
-								if (isWitnessRecord(w) && w.user_id === witness.user_id) {
-									return { ...w, statement: mergedStatement }
-								}
-								return w
-							})
-
-							const { error: updateError } = await client.supabaseClient
-								.from('reports')
-								.update({ witnesses: updatedWitnesses })
-								.eq('id', primaryReport.id)
-
-							if (updateError) {
-								throw new Error(updateError.message || "Failed to update witness statement.")
-							}
-
-							// Update our local map
-							existingWitnessMap.set(witness.user_id, { statement: mergedStatement })
+						const updateWhatHappenedResult = await client.updateReport(primaryReport.id, { 
+							what_happened: mergedWhatHappened 
+						})
+						if (updateWhatHappenedResult.error) {
+							throw new Error(updateWhatHappenedResult.error.message || "Failed to merge what_happened.")
 						}
-					} else {
-						// New witness - add to primary report
-						const witnessResult = await witnessHelper(
-							primaryReport.id,
-							witness.user_id,
-							secondaryStatement ?? null,
-						)
+						// Update primaryReport reference for next iteration
+						primaryReport.what_happened = mergedWhatHappened
+					}
+				} else if (secondaryReport.reporter_id) {
+					// Different reporters - add secondary reporter as witness
+					const witnessHelper =
+						typeof (client as any).addToWitness === "function"
+							? (client as any).addToWitness.bind(client)
+							: client.addWitnessToReport?.bind(client)
 
-						if (witnessResult?.error) {
-							throw new Error(witnessResult.error.message || "Failed to add witness from secondary report.")
-						}
+					if (!witnessHelper) {
+						throw new Error("Witness helper not available.")
+					}
 
-						// Add to our local map
-						existingWitnessMap.set(witness.user_id, { statement: secondaryStatement })
+					const witnessResult = await witnessHelper(
+						primaryReport.id,
+						secondaryReport.reporter_id,
+						secondaryReport.what_happened ?? null,
+					)
+
+					if (witnessResult?.error) {
+						throw new Error(witnessResult.error.message || "Failed to add witness.")
 					}
 				}
-			}
 
-			const archiveResult = await client.archiveReport(secondaryReport.id)
-			if (archiveResult.error) {
-				throw new Error(archiveResult.error.message || "Failed to archive merged report.")
-			}
+				// Merge witnesses from secondary report into primary report
+				// Fetch current primary report witnesses to get updated state
+				const { data: currentPrimaryReport, error: fetchPrimaryError } = await client.supabaseClient
+					.from('reports')
+					.select('witnesses')
+					.eq('id', primaryReport.id)
+					.single()
 
-			// Ensure the archived report is marked as archived
-			const updateArchivedResult = await client.updateReport(secondaryReport.id, { is_archived: true })
-			if (updateArchivedResult.error) {
-				throw new Error(updateArchivedResult.error.message || "Failed to mark report as archived.")
-			}
+				if (fetchPrimaryError) {
+					throw new Error(fetchPrimaryError.message || "Failed to fetch primary report witnesses.")
+				}
 
-			const statusUpdateResult = await client.updateReport(secondaryReport.id, { status: "cancelled", is_archived: true })
-			if (statusUpdateResult.error) {
-				throw new Error(statusUpdateResult.error.message || "Failed to set merged report status to cancelled.")
-			}
+				const primaryWitnesses = Array.isArray(currentPrimaryReport.witnesses) ? currentPrimaryReport.witnesses : []
+				const secondaryWitnesses = Array.isArray(secondaryReport.witnesses) ? secondaryReport.witnesses : []
 
-			setArchivedIds((prev) => {
-				const next = new Set(prev)
-				next.add(secondaryReport.id.toString())
-				return next
-			})
+				if (secondaryWitnesses.length > 0) {
+					const witnessHelper =
+						typeof (client as any).addToWitness === "function"
+							? (client as any).addToWitness.bind(client)
+							: client.addWitnessToReport?.bind(client)
+
+					if (!witnessHelper) {
+						throw new Error("Witness helper not available.")
+					}
+
+					// Create a map of existing witnesses by user_id
+					const existingWitnessMap = new Map<string, { statement: string | null }>()
+					for (const witness of primaryWitnesses) {
+						if (isWitnessRecord(witness)) {
+							existingWitnessMap.set(witness.user_id, {
+								statement: typeof witness.statement === "string" ? witness.statement : null
+							})
+						}
+					}
+
+					// Process each witness from secondary report
+					for (const witness of secondaryWitnesses) {
+						if (!isWitnessRecord(witness)) continue
+
+						const existingWitness = existingWitnessMap.get(witness.user_id)
+						const secondaryStatement = typeof witness.statement === "string" ? witness.statement?.trim() : null
+
+						if (existingWitness) {
+							// Witness exists in primary report - merge statements if different
+							const primaryStatement = existingWitness.statement?.trim() ?? ""
+							
+							if (secondaryStatement && primaryStatement !== secondaryStatement) {
+								const mergedStatement = primaryStatement 
+									? `${primaryStatement}\n\n---\n\n${secondaryStatement}`
+									: secondaryStatement
+
+								// Update the witness statement by fetching current witnesses, updating, and saving
+								const { data: currentReport, error: fetchError } = await client.supabaseClient
+									.from('reports')
+									.select('witnesses')
+									.eq('id', primaryReport.id)
+									.single()
+
+								if (fetchError) {
+									throw new Error(fetchError.message || "Failed to fetch current witnesses.")
+								}
+
+								const currentWitnesses = Array.isArray(currentReport.witnesses) ? currentReport.witnesses : []
+								const updatedWitnesses = currentWitnesses.map((w: any) => {
+									if (isWitnessRecord(w) && w.user_id === witness.user_id) {
+										return { ...w, statement: mergedStatement }
+									}
+									return w
+								})
+
+								const { error: updateError } = await client.supabaseClient
+									.from('reports')
+									.update({ witnesses: updatedWitnesses })
+									.eq('id', primaryReport.id)
+
+								if (updateError) {
+									throw new Error(updateError.message || "Failed to update witness statement.")
+								}
+
+								// Update our local map
+								existingWitnessMap.set(witness.user_id, { statement: mergedStatement })
+							}
+						} else {
+							// New witness - add to primary report
+							const witnessResult = await witnessHelper(
+								primaryReport.id,
+								witness.user_id,
+								secondaryStatement ?? null,
+							)
+
+							if (witnessResult?.error) {
+								throw new Error(witnessResult.error.message || "Failed to add witness from secondary report.")
+							}
+
+							// Add to our local map
+							existingWitnessMap.set(witness.user_id, { statement: secondaryStatement })
+						}
+					}
+				}
+
+				// Archive the secondary report
+				const archiveResult = await client.archiveReport(secondaryReport.id)
+				if (archiveResult.error) {
+					throw new Error(archiveResult.error.message || "Failed to archive merged report.")
+				}
+
+				// Ensure the archived report is marked as archived
+				const updateArchivedResult = await client.updateReport(secondaryReport.id, { is_archived: true })
+				if (updateArchivedResult.error) {
+					throw new Error(updateArchivedResult.error.message || "Failed to mark report as archived.")
+				}
+
+				const statusUpdateResult = await client.updateReport(secondaryReport.id, { status: "cancelled", is_archived: true })
+				if (statusUpdateResult.error) {
+					throw new Error(statusUpdateResult.error.message || "Failed to set merged report status to cancelled.")
+				}
+
+				setArchivedIds((prev) => {
+					const next = new Set(prev)
+					next.add(secondaryReport.id.toString())
+					return next
+				})
+			}
 
 			clearMergeSelection()
 			setIsMergeDialogOpen(false)
@@ -655,7 +672,7 @@ export default function IncidentsPage() {
 				const profile = profiles?.find((profile) => profile.id === witnessData.user_id)
 				const nameParts = profile ? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean) : []
 				const fallbackName = witnessData.user_id.length > 8
-					? `Witness ${witnessData.user_id.slice(0, 8)}…`
+					? `Witness ${witnessData.user_id.slice(0, 8)}?`
 					: witnessData.user_id
 				const name = nameParts.length > 0 ? nameParts.join(" ") : fallbackName
 				const email = profile?.email ?? null
@@ -1373,7 +1390,7 @@ export default function IncidentsPage() {
 										{mergeSelectionCount > 0 && (
 											<div className="flex items-center gap-2">
 												<Badge variant="secondary" className="px-3 py-1">
-													{mergeSelectionCount}/2 selected
+													{mergeSelectionCount} selected
 												</Badge>
 												<Button
 													variant="ghost"
@@ -1491,7 +1508,7 @@ export default function IncidentsPage() {
 																	<Checkbox
 																		checked={isSelected}
 																		onCheckedChange={(checked) => toggleMergeSelection(report, checked === true)}
-																		disabled={isArchived || (!isSelected && mergeSelectionLimitReached)}
+																		disabled={isArchived}
 																		aria-label={`Select report ${report.id} for merging`}
 																	/>
 																</div>
@@ -1870,7 +1887,7 @@ export default function IncidentsPage() {
 															{officer.first_name} {officer.middle_name} {officer.last_name}
 														</div>
 														<div className="text-sm text-muted-foreground">
-															{officer.rank} • Badge #{officer.badge_number}
+															{officer.rank} ? Badge #{officer.badge_number}
 														</div>
 													</div>
 												</div>
@@ -2075,16 +2092,16 @@ export default function IncidentsPage() {
 						<DialogHeader>
 							<DialogTitle>Merge Reports</DialogTitle>
 						</DialogHeader>
-						{selectedReportsForMerge.length !== 2 ? (
+						{selectedReportsForMerge.length < 2 ? (
 							<div className="text-sm text-muted-foreground">
-								Select exactly two reports to merge.
+								Select at least two reports to merge.
 							</div>
 						) : (
 							<div className="space-y-4">
 								<p className="text-sm text-muted-foreground">
-									Choose the report to keep. The other report will be archived, its reporter added as a witness, and its attachments copied over.
+									Choose the primary report to keep. All other reports will be archived, their reporters added as witnesses, and their attachments copied over.
 								</p>
-								<div className="grid gap-3 md:grid-cols-2">
+								<div className="grid gap-3 md:grid-cols-2 max-h-[60vh] overflow-y-auto">
 								{selectedReportsForMerge.map((report) => {
 								const isPrimary = mergePrimaryId === report.id
 								const attachmentsCount = Array.isArray(report.attachments) ? report.attachments.length : 0
@@ -2161,9 +2178,9 @@ export default function IncidentsPage() {
 							</Button>
 							<Button
 								onClick={handleConfirmMerge}
-								disabled={isMerging || !mergePrimaryId || selectedReportsForMerge.length !== 2}
+								disabled={isMerging || !mergePrimaryId || selectedReportsForMerge.length < 2}
 							>
-								{isMerging ? "Merging..." : "Merge Reports"}
+								{isMerging ? "Merging..." : `Merge ${selectedReportsForMerge.length} Report${selectedReportsForMerge.length > 1 ? 's' : ''}`}
 							</Button>
 						</DialogFooter>
 					</DialogContent>
@@ -2183,9 +2200,12 @@ export default function IncidentsPage() {
 									<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
 										<div className="font-medium mb-1">Address Mismatch</div>
 										<div>Selected reports have different street addresses:</div>
-										<div className="mt-2">
-											<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeStreetAddresses.a}</div>
-											<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeStreetAddresses.b}</div>
+										<div className="mt-2 space-y-1">
+											{mergeStreetAddresses.map((addr) => (
+												<div key={addr.id} className="font-medium">
+													#{String(addr.id).slice(-8)}: {addr.address}
+												</div>
+											))}
 										</div>
 									</div>
 								)}
@@ -2193,9 +2213,12 @@ export default function IncidentsPage() {
 									<div className="text-sm text-red-600 border border-red-300 rounded p-3 bg-red-50">
 										<div className="font-medium mb-1">Category Mismatch</div>
 										<div>Selected reports have different categories:</div>
-										<div className="mt-2">
-											<div className="font-medium">#{String(selectedReportsForMerge[0].id).slice(-8)}: {mergeCategories.a}</div>
-											<div className="font-medium">#{String(selectedReportsForMerge[1].id).slice(-8)}: {mergeCategories.b}</div>
+										<div className="mt-2 space-y-1">
+											{mergeCategories.map((cat) => (
+												<div key={cat.id} className="font-medium">
+													#{String(cat.id).slice(-8)}: {cat.category}
+												</div>
+											))}
 										</div>
 									</div>
 								)}
@@ -2379,7 +2402,7 @@ export default function IncidentsPage() {
 										<div className="font-medium">{getCategoryName(selectedReportForDetail.category_id)}</div>
 										{selectedReportForDetail.sub_category !== null && selectedReportForDetail.sub_category !== undefined && (
 											<>
-												<span className="text-muted-foreground">•</span>
+												<span className="text-muted-foreground">?</span>
 												<div className="font-medium text-muted-foreground">{getSubcategoryName(selectedReportForDetail.category_id, selectedReportForDetail.sub_category)}</div>
 											</>
 										)}
@@ -2577,7 +2600,7 @@ export default function IncidentsPage() {
 																	{officer.first_name} {officer.middle_name} {officer.last_name}
 																</div>
 																<div className="text-sm text-muted-foreground">
-																	{officer.rank} • Badge #{officer.badge_number}
+																	{officer.rank} ? Badge #{officer.badge_number}
 																</div>
 															</div>
 														))}
