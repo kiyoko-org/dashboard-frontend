@@ -1,7 +1,7 @@
 import { Dialog, DialogPortal, DialogOverlay, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, Calendar, MapPin, Music, Video, FileText, File, ImageIcon, Download } from "lucide-react"
+import { AlertTriangle, Calendar, MapPin, Music, Video, FileText, File, ImageIcon, Download, ChevronRight } from "lucide-react"
 import type { Database } from "dispatch-lib/database.types"
 
 type Report = Database["public"]["Tables"]["reports"]["Row"]
@@ -190,68 +190,57 @@ export function IncidentDetailDialog({
                         <div className="p-6 space-y-8">
                             {/* Main Info Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-8">
-                                    {/* Incident Section */}
-                                    <section>
-
-                                        <div className="space-y-4">
+                                <div className="space-y-6">
+                                    {/* Incident Information & Location */}
+                                    <div className="space-y-6">
+                                        {/* Title & Date/Time */}
+                                        <div className="flex justify-between items-start gap-4">
                                             <div>
                                                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Title</label>
                                                 <div className="font-medium text-lg mt-0.5">{report.incident_title}</div>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</label>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                        <span>{report.incident_date}</span>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Time</label>
-                                                    <div className="mt-1">{report.incident_time || 'Not specified'}</div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Category</label>
-                                                <div className="mt-1 flex flex-wrap gap-2">
-                                                    <Badge variant="secondary" className="px-2 py-0.5 text-sm font-normal">
-                                                        {getCategoryName(report.category_id)}
-                                                    </Badge>
-                                                    {report.sub_category !== null && (
-                                                        <Badge variant="outline" className="px-2 py-0.5 text-sm font-normal text-muted-foreground">
-                                                            {getSubcategoryName(report.category_id, report.sub_category)}
-                                                        </Badge>
-                                                    )}
+                                            <div className="text-right shrink-0">
+                                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date & Time</label>
+                                                <div className="font-medium text-lg mt-0.5 flex items-center justify-end gap-2">
+                                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                    <span>{report.incident_date}</span>
+                                                    <span className="text-muted-foreground">•</span>
+                                                    <span>{report.incident_time || 'N/A'}</span>
                                                 </div>
                                             </div>
                                         </div>
-                                    </section>
 
-                                    {/* Location Section */}
-                                    <section>
-                                        <h3 className="text-base font-semibold flex items-center gap-2 mb-4 text-foreground">
-                                            <MapPin className="h-4 w-4 text-blue-500" />
-                                            Location
-                                        </h3>
-                                        <div className="space-y-3">
-                                            <div className="bg-muted/30 p-3 rounded-lg border">
-                                                <div className="font-medium">{report.street_address || 'Not specified'}</div>
-                                                {report.nearby_landmark && (
-                                                    <div className="text-sm text-muted-foreground mt-1 flex items-start gap-1">
-                                                        <span className="shrink-0">Near:</span>
-                                                        <span>{report.nearby_landmark}</span>
-                                                    </div>
-                                                )}
-                                            </div>
+                                        {/* Location */}
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Location</label>
+                                            <div className="font-medium text-lg mt-0.5">{report.street_address || 'Not specified'}</div>
+                                            {report.nearby_landmark && (
+                                                <div className="text-sm text-muted-foreground mt-1">
+                                                    Near: {report.nearby_landmark}
+                                                </div>
+                                            )}
                                             {(report.latitude || report.longitude) && (
-                                                <div className="text-xs font-mono text-muted-foreground flex items-center gap-3 px-1">
-                                                    <span>LAT: {report.latitude}</span>
-                                                    <span>LONG: {report.longitude}</span>
+                                                <div className="text-xs font-mono text-muted-foreground mt-1">
+                                                    LAT: {report.latitude} • LONG: {report.longitude}
                                                 </div>
                                             )}
                                         </div>
-                                    </section>
+
+                                        {/* Category */}
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Category</label>
+                                            <div className="mt-1 flex flex-wrap gap-2">
+                                                <Badge variant="secondary" className="px-2 py-0.5 text-sm font-normal">
+                                                    {getCategoryName(report.category_id)}
+                                                </Badge>
+                                                {report.sub_category !== null && (
+                                                    <Badge variant="outline" className="px-2 py-0.5 text-sm font-normal text-muted-foreground">
+                                                        {getSubcategoryName(report.category_id, report.sub_category)}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-8">
@@ -299,14 +288,18 @@ export function IncidentDetailDialog({
                                         <h3 className="text-base font-semibold mb-4 text-foreground">Witnesses ({witnessCount})</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             {witnesses.map((witness) => (
-                                                <div key={witness.userId} className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-accent/50 transition-colors group">
+                                                <div
+                                                    key={witness.userId}
+                                                    className={`flex items-center justify-between p-3 border rounded-lg bg-card transition-colors group ${witness.statement ? 'cursor-pointer hover:bg-accent/50' : ''}`}
+                                                    onClick={() => witness.statement && onViewWitnessStatement(witness)}
+                                                >
                                                     <div className="min-w-0">
                                                         <div className="font-medium truncate">{witness.name}</div>
                                                         <div className="text-xs text-muted-foreground truncate">{witness.email || "No email"}</div>
                                                     </div>
-                                                    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => onViewWitnessStatement(witness)}>
-                                                        Statement
-                                                    </Button>
+                                                    {witness.statement && (
+                                                        <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -380,11 +373,6 @@ export function IncidentDetailDialog({
 
                             {/* Official Use Section */}
                             <div className="bg-muted/30 -mx-6 -mb-6 p-6 border-t mt-4">
-                                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-6 flex items-center gap-2">
-                                    <div className="h-px flex-1 bg-border" />
-                                    Official Use Only
-                                    <div className="h-px flex-1 bg-border" />
-                                </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div>
                                         <h4 className="text-sm font-medium mb-3 text-foreground">Assigned Officers</h4>
