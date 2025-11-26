@@ -74,6 +74,7 @@ export default function IncidentsPage() {
 	const [startDate, setStartDate] = useState("")
 	const [endDate, setEndDate] = useState("")
 	const [isExporting, setIsExporting] = useState(false)
+	const [togglingFalseReport, setTogglingFalseReport] = useState<Set<number>>(new Set())
 	const [selectedReportIdsForMerge, setSelectedReportIdsForMerge] = useState<Set<number>>(new Set())
 	const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false)
 	const [mergePrimaryId, setMergePrimaryId] = useState<number | null>(null)
@@ -1097,6 +1098,49 @@ export default function IncidentsPage() {
 		return sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
 	}
 
+	const handleToggleFalseReport = async (report: Report, markAsFalse: boolean) => {
+		if (togglingFalseReport.has(report.id)) return
+
+		setTogglingFalseReport(prev => new Set(prev).add(report.id))
+
+		try {
+			const client = getDispatchClient()
+
+			const updateData: { false_report: boolean; status?: string; is_archived?: boolean } = {
+				false_report: markAsFalse
+			}
+
+			// If marking as false report, also set status to cancelled
+			if (markAsFalse) {
+				updateData.status = 'cancelled'
+				updateData.is_archived = true
+			}
+
+			const result = await client.updateReport(report.id, updateData)
+			if (result.error) {
+				console.error("Failed to toggle false report:", result.error)
+				return
+			}
+
+			// Notify reporter if marking as false report
+			if (markAsFalse && report.reporter_id) {
+				await client.notifyUser(
+					report.reporter_id,
+					"Report Marked as False",
+					`Your report #${report.id} has been marked as a false report and cancelled.`
+				)
+			}
+		} catch (error) {
+			console.error("Failed to toggle false report:", error)
+		} finally {
+			setTogglingFalseReport(prev => {
+				const next = new Set(prev)
+				next.delete(report.id)
+				return next
+			})
+		}
+	}
+
 	const stats = {
 		total: visibleReports.length,
 		pending: visibleReports.filter((r) => r.status === "pending").length,
@@ -1488,14 +1532,17 @@ export default function IncidentsPage() {
 																	{getSortIcon("status")}
 																</div>
 															</TableHead>
-															<TableHead className="text-right">Actions</TableHead>
+															<TableHead className="text-center">False Report</TableHead>
+															<TableHead className="text-center">Actions</TableHead>
 														</TableRow>
 													</TableHeader>
 													<TableBody>
 														{sortedIncidents.map((report) => {
 															const isArchived = isReportArchived(report)
 															const isSelected = selectedReportIdsForMerge.has(report.id)
-															const rowClass = `${isArchived ? "opacity-60" : ""} ${isSelected ? "bg-muted/40" : ""}`.trim() || undefined
+															const isFalseReport = report.false_report === true
+															const isTogglingFalse = togglingFalseReport.has(report.id)
+															const rowClass = `${isArchived ? "opacity-60" : ""} ${isSelected ? "bg-muted/40" : ""} ${isFalseReport ? "bg-red-50" : ""}`.trim() || undefined
 															return (
 																<TableRow key={report.id} className={rowClass}>
 																	<TableCell className="w-[60px]">
@@ -1547,12 +1594,21 @@ export default function IncidentsPage() {
 																	</TableCell>
 																	<TableCell>{getStatusBadge(report.status)}</TableCell>
 																	<TableCell>
-																		<div className="flex justify-end gap-2">
+																		<div className="flex justify-center">
+																			<Switch
+																				checked={isFalseReport}
+																				onCheckedChange={(checked) => handleToggleFalseReport(report, checked)}
+																				disabled={isTogglingFalse || isArchived}
+																				aria-label={`Mark report ${report.id} as false report`}
+																			/>
+																		</div>
+																	</TableCell>
+																	<TableCell>
+																		<div className="flex justify-center gap-2">
 																			<Button
 																				variant="ghost"
 																				size="icon"
-																				disabled={isArchived}
-																				title={isArchived ? "Disabled for archived reports" : "View details"}
+																				title="View details"
 																				onClick={() => {
 																					setSelectedReportForDetail(report)
 																					setIsDetailDialogOpen(true)
@@ -1570,13 +1626,15 @@ export default function IncidentsPage() {
 																					setIsAssignDialogOpen(true)
 																				}}
 																				title={
-																					report.status === 'resolved'
-																						? "Cannot assign to resolved report"
-																						: report.status === 'cancelled'
-																							? "Cannot assign to cancelled report"
-																							: "Assign officers"
+																					isFalseReport
+																						? "Cannot assign to false report"
+																						: report.status === 'resolved'
+																							? "Cannot assign to resolved report"
+																							: report.status === 'cancelled'
+																								? "Cannot assign to cancelled report"
+																								: "Assign officers"
 																				}
-																				disabled={isArchived || report.status === 'resolved' || report.status === 'cancelled'}
+																				disabled={isArchived || isFalseReport || report.status === 'resolved' || report.status === 'cancelled'}
 																			>
 																				<UserPlus className="h-4 w-4" />
 																			</Button>
@@ -1591,8 +1649,8 @@ export default function IncidentsPage() {
 																					setEditedSubcategory(report.sub_category ?? null)
 																					setIsEditOpen(true)
 																				}}
-																				title="Edit"
-																				disabled={isArchived}
+																				title={isFalseReport ? "Cannot edit false report" : "Edit"}
+																				disabled={isArchived || isFalseReport}
 																			>
 																				<Edit className="h-4 w-4" />
 																			</Button>
