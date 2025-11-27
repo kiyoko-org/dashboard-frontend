@@ -1352,7 +1352,7 @@ export default function IncidentsPage() {
 														type="date"
 														value={startDate}
 														onChange={(e) => setStartDate(e.target.value)}
-														className="flex-1 sm:w-32"
+														className="flex-1 sm:w-[152px]"
 														placeholder="Start date"
 													/>
 												</div>
@@ -1361,7 +1361,7 @@ export default function IncidentsPage() {
 													type="date"
 													value={endDate}
 													onChange={(e) => setEndDate(e.target.value)}
-													className="flex-1 sm:w-32"
+													className="flex-1 sm:w-[152px]"
 													placeholder="End date"
 												/>
 											</div>
