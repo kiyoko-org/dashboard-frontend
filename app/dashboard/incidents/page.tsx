@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { toast } from "sonner"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -80,6 +81,8 @@ export default function IncidentsPage() {
 	const [mergeError, setMergeError] = useState<string | null>(null)
 	const [isMerging, setIsMerging] = useState(false)
 	const [isMismatchDialogOpen, setIsMismatchDialogOpen] = useState(false)
+	const [highlightedReportIds, setHighlightedReportIds] = useState<Set<number>>(new Set())
+	const previousReportsRef = useRef<Report[]>([])
 	const topScrollRef = useRef<HTMLDivElement>(null)
 	const topScrollContentRef = useRef<HTMLDivElement>(null)
 	const tableWrapperRef = useRef<HTMLDivElement | null>(null)
@@ -463,6 +466,44 @@ export default function IncidentsPage() {
 			setIsMergeDialogOpen(false)
 		}
 	}, [canMergeSelectedReports, isMerging, isMergeDialogOpen])
+
+	// Detect new reports and show toast notification + highlight
+	useEffect(() => {
+		if (loading) return
+
+		const prevIds = new Set(previousReportsRef.current.map(r => r.id))
+		const newReports = reports.filter(r => !prevIds.has(r.id))
+
+		// Only show notifications if we had previous reports (not initial load)
+		if (newReports.length > 0 && previousReportsRef.current.length > 0) {
+			// Show toast for each new report
+			newReports.forEach(report => {
+				toast.info(`New Incident: ${report.incident_title || 'Untitled'}`, {
+					description: report.street_address || 'Location unknown',
+					duration: 5000,
+				})
+			})
+
+			// Add to highlighted set
+			setHighlightedReportIds(prev => {
+				const next = new Set(prev)
+				newReports.forEach(r => next.add(r.id))
+				return next
+			})
+
+			// Remove highlight after 30 seconds
+			const newIds = newReports.map(r => r.id)
+			setTimeout(() => {
+				setHighlightedReportIds(prev => {
+					const next = new Set(prev)
+					newIds.forEach(id => next.delete(id))
+					return next
+				})
+			}, 30000)
+		}
+
+		previousReportsRef.current = reports
+	}, [reports, loading])
 
 	const generateReportTitle = () => {
 		let title = "Incident Report - "
@@ -1495,7 +1536,12 @@ export default function IncidentsPage() {
 														{sortedIncidents.map((report) => {
 															const isArchived = isReportArchived(report)
 															const isSelected = selectedReportIdsForMerge.has(report.id)
-															const rowClass = `${isArchived ? "opacity-60" : ""} ${isSelected ? "bg-muted/40" : ""}`.trim() || undefined
+															const isHighlighted = highlightedReportIds.has(report.id)
+															const rowClass = [
+																isArchived ? "opacity-60" : "",
+																isSelected ? "bg-muted/40" : "",
+																isHighlighted ? "animate-highlight-fade" : ""
+															].filter(Boolean).join(" ") || undefined
 															return (
 																<TableRow key={report.id} className={rowClass}>
 																	<TableCell className="w-[60px]">

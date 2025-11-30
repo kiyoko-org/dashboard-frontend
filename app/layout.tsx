@@ -4,6 +4,7 @@ import { AuthProvider } from "dispatch-lib"
 import { Inter } from "next/font/google"
 import { DispatchClientProvider } from "@/components/providers/dispatch-client-provider"
 import { AuthGuard } from "@/components/providers/auth-guard"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -23,6 +24,7 @@ export default function RootLayout({
             </AuthGuard>
           </AuthProvider>
         </DispatchClientProvider>
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   )

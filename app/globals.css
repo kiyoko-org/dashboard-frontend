@@ -68,3 +68,17 @@
   }
 }
 
+/* Highlight animation for new incident rows */
+@keyframes highlight-fade {
+  0% {
+    background-color: rgb(254 249 195); /* yellow-100 */
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-highlight-fade {
+  animation: highlight-fade 30s ease-out forwards;
+}
+
