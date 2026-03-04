@@ -1152,7 +1152,8 @@ export default function IncidentsPage() {
 	type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled" | "unresolved"
 	const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
 	const [editedPoliceNotes, setEditedPoliceNotes] = useState<string>("")
-	const [editedFalseReport, setEditedFalseReport] = useState<boolean>(false)
+	const [editedCancellationReason, setEditedCancellationReason] = useState<string | null>(null)
+	const [shouldIncrementTrust, setShouldIncrementTrust] = useState<boolean>(false)
 	const [editedCategory, setEditedCategory] = useState<number | null>(null)
 	const [editedSubcategory, setEditedSubcategory] = useState<number | null>(null)
 	const [saving, setSaving] = useState(false)
@@ -1165,9 +1166,9 @@ export default function IncidentsPage() {
 		const policeNotesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
 		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
 		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
-		const falseReportChanged = editedFalseReport !== (selectedReport.false_report ?? false)
+		const cancellationReasonChanged = editedCancellationReason !== (selectedReport.cancellation_reason ?? null)
 
-		if (!statusChanged && !policeNotesChanged && !categoryChanged && !subcategoryChanged && !falseReportChanged) {
+		if (!statusChanged && !policeNotesChanged && !categoryChanged && !subcategoryChanged && !cancellationReasonChanged && !shouldIncrementTrust) {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			return
@@ -1190,6 +1191,9 @@ export default function IncidentsPage() {
 			}
 			if (editedStatus === 'cancelled') {
 				updateData.is_archived = true
+				if (editedCancellationReason) {
+					updateData.cancellation_reason = editedCancellationReason
+				}
 			}
 			if (policeNotesChanged && (editedStatus === 'resolved' || selectedReport.status === 'resolved')) {
 				updateData.police_notes = editedPoliceNotes
@@ -1200,23 +1204,21 @@ export default function IncidentsPage() {
 			if (subcategoryChanged) {
 				updateData.sub_category = editedSubcategory
 			}
-			if (falseReportChanged) {
-				updateData.false_report = editedFalseReport
-			}
 
 			const result = await client.updateReport(selectedReport.id, updateData)
 			if (result.error) {
 				throw new Error(result.error.message || 'Failed to update status')
 			}
 
-			// Automated Trust Score Adjustment:
-			// If a report is marked as FALSE, decrement the reporter's trust score.
-			if (falseReportChanged && editedFalseReport && selectedReport.reporter_id) {
+			// Manual Trust Score Adjustment:
+			// If resolving, increment if requested.
+			if (editedStatus === 'resolved' && shouldIncrementTrust && selectedReport.reporter_id) {
+				await client.incrementTrustScore(selectedReport.reporter_id);
+			}
+
+			// If cancelled as Prank Call, decrement score.
+			if (editedStatus === 'cancelled' && editedCancellationReason === 'Prank Call' && selectedReport.reporter_id) {
 				await client.decrementTrustScore(selectedReport.reporter_id);
-				// Also update factors
-				await client.updateTrustFactors(selectedReport.reporter_id, {
-					false_reports: 1 // This will be merged by the library method
-				});
 			}
 
 			// Notify reporter of status change
@@ -1232,7 +1234,8 @@ export default function IncidentsPage() {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			setEditedPoliceNotes("")
-			setEditedFalseReport(false)
+			setEditedCancellationReason(null)
+			setShouldIncrementTrust(false)
 			setEditedCategory(null)
 			setEditedSubcategory(null)
 		} catch (err) {
@@ -1249,9 +1252,9 @@ export default function IncidentsPage() {
 		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
 		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
 		const notesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
-		const falseReportChanged = editedFalseReport !== (selectedReport.false_report ?? false)
-		return statusChanged || categoryChanged || subcategoryChanged || notesChanged || falseReportChanged
-	}, [editedStatus, editedCategory, editedSubcategory, editedPoliceNotes, editedFalseReport, selectedReport])
+		const cancellationReasonChanged = editedCancellationReason !== (selectedReport.cancellation_reason ?? null)
+		return statusChanged || categoryChanged || subcategoryChanged || notesChanged || cancellationReasonChanged || shouldIncrementTrust
+	}, [editedStatus, editedCategory, editedSubcategory, editedPoliceNotes, editedCancellationReason, shouldIncrementTrust, selectedReport])
 
 	const saveDisabled = saving || !hasChanges
 
@@ -1579,9 +1582,9 @@ export default function IncidentsPage() {
 																			<AlertTriangle className="h-4 w-4 text-red-500" />
 																			<div className="flex flex-col">
 																				<span className="font-medium">{report.incident_title}</span>
-																				{report.false_report && (
-																					<Badge variant="destructive" className="w-fit h-4 text-[10px] uppercase px-1">
-																						False Report
+																				{report.status === 'cancelled' && report.cancellation_reason && (
+																					<Badge variant="outline" className="w-fit h-4 text-[10px] uppercase px-1 border-red-200 text-red-700 bg-red-50">
+																						{report.cancellation_reason}
 																					</Badge>
 																				)}
 																			</div>
@@ -1657,7 +1660,8 @@ export default function IncidentsPage() {
 																					setSelectedReport(report)
 																					setEditedStatus((report.status ?? "pending") as ReportStatus)
 																					setEditedPoliceNotes(report.police_notes ?? "")
-																					setEditedFalseReport(report.false_report ?? false)
+																					setEditedCancellationReason(report.cancellation_reason ?? null)
+																					setShouldIncrementTrust(false)
 																					setEditedCategory(report.category_id ?? null)
 																					setEditedSubcategory(report.sub_category ?? null)
 																					setIsEditOpen(true)
@@ -1697,6 +1701,8 @@ export default function IncidentsPage() {
 						setIsEditOpen(false)
 						setSelectedReport(null)
 						setEditedPoliceNotes("")
+						setEditedCancellationReason(null)
+						setShouldIncrementTrust(false)
 						setShowCancelConfirm(false)
 					} else {
 						setIsEditOpen(open)
@@ -1710,7 +1716,7 @@ export default function IncidentsPage() {
 									<div className="flex flex-col items-center gap-2">
 										<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 										<div className="text-sm text-muted-foreground">
-											{editedStatus === 'resolved' ? 'Unassigning officers and updating status...' : 'Updating status...'}
+											{editedStatus === 'resolved' ? 'Updating and adjusting trust score...' : 'Updating status...'}
 										</div>
 									</div>
 								</div>
@@ -1771,17 +1777,6 @@ export default function IncidentsPage() {
 										</Select>
 									</div>
 								)}
-								<div className="flex items-center justify-between border p-3 rounded-md bg-slate-50">
-									<div className="space-y-0.5">
-										<div className="text-sm font-medium">False Report</div>
-										<div className="text-xs text-muted-foreground">Mark this if the report is a prank or fake</div>
-									</div>
-									<Switch
-										checked={editedFalseReport}
-										onCheckedChange={setEditedFalseReport}
-										disabled={saving}
-									/>
-								</div>
 								<div>
 									<div className="text-sm text-muted-foreground mb-2">Status</div>
 									<Select
@@ -1805,17 +1800,61 @@ export default function IncidentsPage() {
 										</SelectContent>
 									</Select>
 								</div>
-								{editedStatus === 'resolved' && (
+								{editedStatus === 'cancelled' && (
 									<div>
-										<div className="text-sm text-muted-foreground mb-2">Police Notes</div>
-										<Textarea
-											value={editedPoliceNotes}
-											onChange={(e) => setEditedPoliceNotes(e.target.value)}
-											placeholder="Enter police notes for this resolved incident..."
+										<div className="text-sm text-muted-foreground mb-2">Cancellation Reason</div>
+										<Select
+											value={editedCancellationReason ?? ""}
+											onValueChange={(value) => {
+												setEditedCancellationReason(value)
+											}}
 											disabled={saving}
-											className="min-h-24"
-										/>
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select reason" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="Prank Call">Prank Call (Decrements Trust)</SelectItem>
+												<SelectItem value="Duplicate">Duplicate</SelectItem>
+												<SelectItem value="Resolved by Other Agency">Resolved by Other Agency</SelectItem>
+												<SelectItem value="Other">Other</SelectItem>
+											</SelectContent>
+										</Select>
 									</div>
+								)}
+								{editedStatus === 'resolved' && (
+									<>
+										{(() => {
+											const reporter = profiles?.find(p => p.id === selectedReport?.reporter_id);
+											const currentTrust = reporter?.trust_score ?? 0;
+											if (currentTrust < 3) {
+												return (
+													<div className="flex items-center justify-between border p-3 rounded-md bg-green-50/50 border-green-100">
+														<div className="space-y-0.5">
+															<div className="text-sm font-medium text-green-900">Increase Trust Score</div>
+															<div className="text-xs text-green-700">Would you like to increase this user's trust level? (Current: {currentTrust})</div>
+														</div>
+														<Switch
+															checked={shouldIncrementTrust}
+															onCheckedChange={setShouldIncrementTrust}
+															disabled={saving}
+														/>
+													</div>
+												);
+											}
+											return null;
+										})()}
+										<div>
+											<div className="text-sm text-muted-foreground mb-2">Police Notes</div>
+											<Textarea
+												value={editedPoliceNotes}
+												onChange={(e) => setEditedPoliceNotes(e.target.value)}
+												placeholder="Enter police notes for this resolved incident..."
+												disabled={saving}
+												className="min-h-24"
+											/>
+										</div>
+									</>
 								)}
 								{updateError && (
 									<div className="text-sm text-red-600 border border-red-300 rounded p-2 bg-red-50">
@@ -1826,6 +1865,9 @@ export default function IncidentsPage() {
 									<div className="text-sm text-amber-600 border border-amber-300 rounded p-3 bg-amber-50">
 										<div className="font-medium mb-1">Are you sure?</div>
 										<div>This will cancel the report. This action cannot be undone.</div>
+										{editedCancellationReason === 'Prank Call' && (
+											<div className="mt-2 font-bold underline">Warning: This will decrement the user's trust score.</div>
+										)}
 									</div>
 								)}
 							</div>
@@ -1837,6 +1879,8 @@ export default function IncidentsPage() {
 											setIsEditOpen(false)
 											setSelectedReport(null)
 											setEditedPoliceNotes("")
+											setEditedCancellationReason(null)
+											setShouldIncrementTrust(false)
 											setEditedCategory(null)
 											setEditedSubcategory(null)
 											setShowCancelConfirm(false)
@@ -1850,7 +1894,7 @@ export default function IncidentsPage() {
 									<Button
 										variant="destructive"
 										onClick={handleSaveStatus}
-										disabled={saving}
+										disabled={saving || !editedCancellationReason}
 									>
 										{saving ? "Cancelling Report..." : "Yes, Cancel Report"}
 									</Button>
@@ -1863,6 +1907,7 @@ export default function IncidentsPage() {
 						</DialogContent>
 					</DialogPortal>
 				</Dialog>
+
 
 				{/* Assignment Dialog */}
 				<Dialog open={isAssignDialogOpen} onOpenChange={(open) => {

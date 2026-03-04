@@ -35,7 +35,7 @@ import { z } from "zod"
 
 const hotlineSchema = z.object({
 	name: z.string().min(1, "Name is required"),
-	description: z.string().optional(),
+	description: z.string().nullable(),
 	phone_number: z.string().regex(/^\d+$/, "Phone number must contain only digits").min(3, "Phone number must be at least 3 digits").max(11, "Phone number must be at most 11 digits")
 })
 
@@ -53,7 +53,7 @@ export default function HotlinesPage() {
 	const editForm = useForm({
 		defaultValues: {
 			name: "",
-			description: undefined as string | undefined,
+			description: null as string | null,
 			phone_number: ""
 		},
 		validators: {
@@ -71,7 +71,7 @@ export default function HotlinesPage() {
 	const addForm = useForm({
 		defaultValues: {
 			name: "",
-			description: undefined as string | undefined,
+			description: null as string | null,
 			phone_number: ""
 		},
 		validators: {
@@ -97,7 +97,7 @@ export default function HotlinesPage() {
 					const hotline = getHotline(editingHotline)
 					if (hotline) {
 						editForm.setFieldValue('name', hotline.name)
-						editForm.setFieldValue('description', hotline.description ?? undefined)
+						editForm.setFieldValue('description', hotline.description ?? null)
 						editForm.setFieldValue('phone_number', hotline.phone_number)
 					}
 				}
@@ -179,7 +179,7 @@ export default function HotlinesPage() {
 											<Textarea
 												id={field.name}
 												name={field.name}
-												value={field.state.value}
+												value={field.state.value ?? ""}
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
 												aria-invalid={isInvalid}
@@ -277,7 +277,7 @@ export default function HotlinesPage() {
 											<Textarea
 												id={field.name}
 												name={field.name}
-												value={field.state.value}
+												value={field.state.value ?? ""}
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
 												aria-invalid={isInvalid}
@@ -357,7 +357,7 @@ export default function HotlinesPage() {
 													const h = hotlines.find(h => h.id === hotline.id)
 													if (h) {
 														editForm.setFieldValue('name', h.name)
-														editForm.setFieldValue('description', h.description ?? undefined)
+														editForm.setFieldValue('description', h.description ?? null)
 														editForm.setFieldValue('phone_number', h.phone_number)
 													}
 													setEditingHotline(hotline.id)

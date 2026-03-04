@@ -59,7 +59,7 @@ export interface Database {
 					request_follow_up?: boolean
 					share_with_community?: boolean
 					is_anonymous?: boolean
-					status?: 'pending' | 'assigned' | 'in-progress' | 'resolved' | 'cancelled'
+					status?: 'pending' | 'assigned' | 'in-progress' | 'unresolved' | 'resolved' | 'cancelled'
 					priority?: 'low' | 'medium' | 'high' | 'critical'
 					assigned_to?: string | null
 					police_notes?: string | null
@@ -89,7 +89,7 @@ export interface Database {
 					request_follow_up?: boolean
 					share_with_community?: boolean
 					is_anonymous?: boolean
-					status?: 'pending' | 'assigned' | 'in-progress' | 'resolved' | 'cancelled'
+					status?: 'pending' | 'assigned' | 'in-progress' | 'unresolved' | 'resolved' | 'cancelled'
 					priority?: 'low' | 'medium' | 'high' | 'critical'
 					assigned_to?: string | null
 					police_notes?: string | null

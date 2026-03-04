@@ -161,10 +161,17 @@ export function IncidentDetailDialog({
             <DialogPortal>
                 <DialogOverlay className="bg-gray-900/20 backdrop-blur-sm" />
                 <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0 gap-0">
-                    <DialogHeader className="p-6 pb-4 border-b sticky top-0 bg-background z-10">
+                            <DialogHeader className="p-6 pb-4 border-b sticky top-0 bg-background z-10">
                         <div className="flex items-center justify-between">
                             <DialogTitle className="text-xl">Report Details</DialogTitle>
-                            {report && getStatusBadge(report.status)}
+                            <div className="flex items-center gap-2">
+                                {report?.status === 'cancelled' && report.cancellation_reason && (
+                                    <Badge variant="outline" className="text-[10px] uppercase border-red-200 text-red-700 bg-red-50">
+                                        {report.cancellation_reason}
+                                    </Badge>
+                                )}
+                                {report && getStatusBadge(report.status)}
+                            </div>
                         </div>
                         {report && (
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mt-2">
