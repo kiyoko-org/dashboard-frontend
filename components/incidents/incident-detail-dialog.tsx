@@ -396,7 +396,7 @@ export function IncidentDetailDialog({
                                                     return assignedOfficers.map(officer => (
                                                         <div key={officer.id} className="flex items-center gap-3 p-3">
                                                             <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300 font-bold text-xs">
-                                                                {officer.first_name[0]}{officer.last_name[0]}
+                                                                {officer.first_name?.[0] || ''}{officer.last_name?.[0] || ''}
                                                             </div>
                                                             <div>
                                                                 <div className="text-sm font-medium">

@@ -1152,6 +1152,7 @@ export default function IncidentsPage() {
 	type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled" | "unresolved"
 	const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
 	const [editedPoliceNotes, setEditedPoliceNotes] = useState<string>("")
+	const [editedFalseReport, setEditedFalseReport] = useState<boolean>(false)
 	const [editedCategory, setEditedCategory] = useState<number | null>(null)
 	const [editedSubcategory, setEditedSubcategory] = useState<number | null>(null)
 	const [saving, setSaving] = useState(false)
@@ -1164,8 +1165,9 @@ export default function IncidentsPage() {
 		const policeNotesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
 		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
 		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
+		const falseReportChanged = editedFalseReport !== (selectedReport.false_report ?? false)
 
-		if (!statusChanged && !policeNotesChanged && !categoryChanged && !subcategoryChanged) {
+		if (!statusChanged && !policeNotesChanged && !categoryChanged && !subcategoryChanged && !falseReportChanged) {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			return
@@ -1198,10 +1200,23 @@ export default function IncidentsPage() {
 			if (subcategoryChanged) {
 				updateData.sub_category = editedSubcategory
 			}
+			if (falseReportChanged) {
+				updateData.false_report = editedFalseReport
+			}
 
 			const result = await client.updateReport(selectedReport.id, updateData)
 			if (result.error) {
 				throw new Error(result.error.message || 'Failed to update status')
+			}
+
+			// Automated Trust Score Adjustment:
+			// If a report is marked as FALSE, decrement the reporter's trust score.
+			if (falseReportChanged && editedFalseReport && selectedReport.reporter_id) {
+				await client.decrementTrustScore(selectedReport.reporter_id);
+				// Also update factors
+				await client.updateTrustFactors(selectedReport.reporter_id, {
+					false_reports: 1 // This will be merged by the library method
+				});
 			}
 
 			// Notify reporter of status change
@@ -1217,6 +1232,7 @@ export default function IncidentsPage() {
 			setIsEditOpen(false)
 			setSelectedReport(null)
 			setEditedPoliceNotes("")
+			setEditedFalseReport(false)
 			setEditedCategory(null)
 			setEditedSubcategory(null)
 		} catch (err) {
@@ -1233,8 +1249,9 @@ export default function IncidentsPage() {
 		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
 		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
 		const notesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
-		return statusChanged || categoryChanged || subcategoryChanged || notesChanged
-	}, [editedStatus, editedCategory, editedSubcategory, editedPoliceNotes, selectedReport])
+		const falseReportChanged = editedFalseReport !== (selectedReport.false_report ?? false)
+		return statusChanged || categoryChanged || subcategoryChanged || notesChanged || falseReportChanged
+	}, [editedStatus, editedCategory, editedSubcategory, editedPoliceNotes, editedFalseReport, selectedReport])
 
 	const saveDisabled = saving || !hasChanges
 
@@ -1560,7 +1577,14 @@ export default function IncidentsPage() {
 																	<TableCell>
 																		<div className="flex items-center gap-2">
 																			<AlertTriangle className="h-4 w-4 text-red-500" />
-																			<span className="font-medium">{report.incident_title}</span>
+																			<div className="flex flex-col">
+																				<span className="font-medium">{report.incident_title}</span>
+																				{report.false_report && (
+																					<Badge variant="destructive" className="w-fit h-4 text-[10px] uppercase px-1">
+																						False Report
+																					</Badge>
+																				)}
+																			</div>
 																		</div>
 																	</TableCell>
 																	<TableCell>
@@ -1633,6 +1657,7 @@ export default function IncidentsPage() {
 																					setSelectedReport(report)
 																					setEditedStatus((report.status ?? "pending") as ReportStatus)
 																					setEditedPoliceNotes(report.police_notes ?? "")
+																					setEditedFalseReport(report.false_report ?? false)
 																					setEditedCategory(report.category_id ?? null)
 																					setEditedSubcategory(report.sub_category ?? null)
 																					setIsEditOpen(true)
@@ -1722,7 +1747,7 @@ export default function IncidentsPage() {
 										</SelectContent>
 									</Select>
 								</div>
-								{editedCategory !== null && categories?.find(cat => cat.id === editedCategory)?.sub_categories && categories.find(cat => cat.id === editedCategory)!.sub_categories.length > 0 && (
+								{editedCategory !== null && categories?.find(cat => cat.id === editedCategory)?.sub_categories && (categories?.find(cat => cat.id === editedCategory)?.sub_categories?.length ?? 0) > 0 && (
 									<div>
 										<div className="text-sm text-muted-foreground mb-2">Subcategory</div>
 										<Select
@@ -1737,7 +1762,7 @@ export default function IncidentsPage() {
 												<SelectValue placeholder="Select subcategory" />
 											</SelectTrigger>
 											<SelectContent>
-												{categories.find(cat => cat.id === editedCategory)?.sub_categories.map((sub, index) => (
+												{categories?.find(cat => cat.id === editedCategory)?.sub_categories?.map((sub, index) => (
 													<SelectItem key={index} value={index.toString()}>
 														{sub}
 													</SelectItem>
@@ -1746,6 +1771,17 @@ export default function IncidentsPage() {
 										</Select>
 									</div>
 								)}
+								<div className="flex items-center justify-between border p-3 rounded-md bg-slate-50">
+									<div className="space-y-0.5">
+										<div className="text-sm font-medium">False Report</div>
+										<div className="text-xs text-muted-foreground">Mark this if the report is a prank or fake</div>
+									</div>
+									<Switch
+										checked={editedFalseReport}
+										onCheckedChange={setEditedFalseReport}
+										disabled={saving}
+									/>
+								</div>
 								<div>
 									<div className="text-sm text-muted-foreground mb-2">Status</div>
 									<Select
@@ -2173,9 +2209,9 @@ export default function IncidentsPage() {
 														<span>{report.incident_date || "No date"}</span>
 														{report.incident_time && <span>{report.incident_time}</span>}
 													</div>
-													{report.description && (
+													{report.what_happened && (
 														<p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
-															{report.description}
+															{report.what_happened}
 														</p>
 													)}
 													<div className="mt-3 flex items-center justify-end text-xs text-muted-foreground">
