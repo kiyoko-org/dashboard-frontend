@@ -21,6 +21,7 @@ export function DispatchClientProvider({ children }: { children: React.ReactNode
         anonymousKey: supabaseKey,
         detectSessionInUrl: true,
       },
+      useProxy: true,
     })
 
     setIsInitialized(true)

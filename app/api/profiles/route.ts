@@ -23,3 +23,32 @@ export async function GET() {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const { userId, trustScore } = await request.json()
+
+    if (!userId || trustScore === undefined) {
+      return NextResponse.json({ error: "Missing userId or trustScore" }, { status: 400 })
+    }
+
+    const { data, error } = await server
+      .from("profiles")
+      .update({ 
+        trust_score: trustScore,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", userId)
+      .select()
+
+    if (error) {
+      console.error("Update Trust Score error:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data?.[0] ?? {})
+  } catch (err: any) {
+    console.error("Update Trust Score exception:", err)
+    return NextResponse.json({ error: String(err) }, { status: 500 })
+  }
+}
