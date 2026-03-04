@@ -233,26 +233,24 @@ export default function UsersPage() {
 								</div>
 							</div>
 
-							{editingUser.trust_factors && (
-								<div className="bg-slate-50 p-4 rounded-lg space-y-2">
-									<h4 className="text-sm font-semibold flex items-center gap-2">
-										<TrendingUp className="h-4 w-4" />
-										Trust Factors
-									</h4>
-									<div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-										<div className="text-slate-500">Total Reports:</div>
-										<div className="font-medium">{editingUser.trust_factors.total_reports || 0}</div>
-										<div className="text-slate-500">Verified:</div>
-										<div className="font-medium text-green-600">{editingUser.trust_factors.verified_reports || 0}</div>
-										<div className="text-slate-500">False Reports:</div>
-										<div className="font-medium text-red-600">{editingUser.trust_factors.false_reports || 0}</div>
-										<div className="text-slate-500">Avg Response:</div>
-										<div className="font-medium">
-											{editingUser.trust_factors.avg_response_time_minutes ? `${editingUser.trust_factors.avg_response_time_minutes}m` : 'N/A'}
-										</div>
+							<div className="bg-slate-50 p-4 rounded-lg space-y-2 dark:bg-slate-900/50">
+								<h4 className="text-sm font-semibold flex items-center gap-2">
+									<TrendingUp className="h-4 w-4" />
+									Trust Factors
+								</h4>
+								<div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+									<div className="text-slate-500">Total Reports:</div>
+									<div className="font-medium">{editingUser.trust_factors?.total_reports || 0}</div>
+									<div className="text-slate-500">Verified:</div>
+									<div className="font-medium text-green-600">{editingUser.trust_factors?.verified_reports || 0}</div>
+									<div className="text-slate-500">False Reports:</div>
+									<div className="font-medium text-red-600">{editingUser.trust_factors?.false_reports || 0}</div>
+									<div className="text-slate-500">Avg Response:</div>
+									<div className="font-medium">
+										{editingUser.trust_factors?.avg_response_time_minutes ? `${editingUser.trust_factors.avg_response_time_minutes}m` : 'N/A'}
 									</div>
 								</div>
-							)}
+							</div>
 						</div>
 					)}
 
