@@ -1685,12 +1685,7 @@ export default function IncidentsPage() {
 																	</TableCell>
 																	<TableCell>{getStatusBadge(report.status)}</TableCell>
 																	<TableCell>
-																		<div className="flex flex-col gap-1">
-																			{getTrustBadge(report.reporter_trust_score)}
-																			<span className="text-xs text-muted-foreground">
-																				Score {report.reporter_trust_score ?? 0}
-																			</span>
-																		</div>
+																		{getTrustBadge(report.reporter_trust_score)}
 																	</TableCell>
 																	<TableCell>
 																		<div className="flex justify-end gap-2">
