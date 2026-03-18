@@ -1,54 +1,93 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { NO_STORE_HEADERS, requireDashboardAdmin } from "@/lib/server/auth"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+export const dynamic = "force-dynamic"
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("Missing Supabase environment variables")
+type UpdateTrustScoreRequest = {
+	userId: string
+	trustScore: number
 }
 
-const server = createClient(supabaseUrl, supabaseKey)
+function createErrorResponse(status: number, message: string) {
+	return NextResponse.json({ error: message }, { status, headers: NO_STORE_HEADERS })
+}
 
-export async function GET() {
-  try {
-    const { data, error } = await server.rpc("get_profiles_with_emails")
-    if (error) {
-      console.error("Profiles API error:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-    return NextResponse.json(data ?? [])
-  } catch (err: any) {
-    console.error("Profiles API exception:", err)
-    return NextResponse.json({ error: String(err) }, { status: 500 })
-  }
+function isUpdateTrustScoreRequest(value: unknown): value is UpdateTrustScoreRequest {
+	if (!value || typeof value !== "object") return false
+
+	const candidate = value as Record<string, unknown>
+	return (
+		typeof candidate.userId === "string" &&
+		candidate.userId.length > 0 &&
+		typeof candidate.trustScore === "number" &&
+		Number.isFinite(candidate.trustScore)
+	)
+}
+
+export async function GET(request: Request) {
+	const authResult = await requireDashboardAdmin(request)
+	if ("response" in authResult) {
+		return authResult.response
+	}
+
+	try {
+		const { data, error } = await authResult.serviceClient.rpc("get_profiles_with_emails")
+		if (error) {
+			console.error("Profiles API error:", error)
+			return createErrorResponse(500, error.message)
+		}
+
+		return NextResponse.json(data ?? [], { headers: NO_STORE_HEADERS })
+	} catch (error) {
+		console.error("Profiles API exception:", error)
+		const message = error instanceof Error ? error.message : "Failed to fetch profiles"
+		return createErrorResponse(500, message)
+	}
 }
 
 export async function PATCH(request: Request) {
-  try {
-    const { userId, trustScore } = await request.json()
+	const authResult = await requireDashboardAdmin(request)
+	if ("response" in authResult) {
+		return authResult.response
+	}
 
-    if (!userId || trustScore === undefined) {
-      return NextResponse.json({ error: "Missing userId or trustScore" }, { status: 400 })
-    }
+	let body: unknown
+	try {
+		body = await request.json()
+	} catch {
+		return createErrorResponse(400, "Invalid JSON body")
+	}
 
-    const { data, error } = await server
-      .from("profiles")
-      .update({ 
-        trust_score: trustScore,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", userId)
-      .select()
+	if (!isUpdateTrustScoreRequest(body)) {
+		return createErrorResponse(400, "Missing userId or trustScore")
+	}
 
-    if (error) {
-      console.error("Update Trust Score error:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+	const validatedTrustScore = Math.max(0, Math.min(3, Math.round(body.trustScore)))
 
-    return NextResponse.json(data?.[0] ?? {})
-  } catch (err: any) {
-    console.error("Update Trust Score exception:", err)
-    return NextResponse.json({ error: String(err) }, { status: 500 })
-  }
+	try {
+		const { data, error } = await authResult.serviceClient
+			.from("profiles")
+			.update({
+				trust_score: validatedTrustScore,
+				updated_at: new Date().toISOString(),
+			})
+			.eq("id", body.userId)
+			.select()
+			.maybeSingle()
+
+		if (error) {
+			console.error("Update Trust Score error:", error)
+			return createErrorResponse(500, error.message)
+		}
+
+		if (!data) {
+			return createErrorResponse(404, "Profile not found")
+		}
+
+		return NextResponse.json(data, { headers: NO_STORE_HEADERS })
+	} catch (error) {
+		console.error("Update Trust Score exception:", error)
+		const message = error instanceof Error ? error.message : "Failed to update trust score"
+		return createErrorResponse(500, message)
+	}
 }

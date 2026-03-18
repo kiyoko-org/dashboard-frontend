@@ -42,16 +42,22 @@ import {
 	FileText,
 	Video,
 	FileImage,
+	Shield,
+	ShieldAlert,
+	ShieldCheck,
 } from "lucide-react"
-import { useRealtimeReports, getDispatchClient, useCategories, useOfficers, useProfiles } from "dispatch-lib"
+import { getDispatchClient, useCategories, useOfficers } from "dispatch-lib"
 import type { Witness } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
+import { IncidentDetailDialog, type WitnessDisplay } from "@/components/incidents/incident-detail-dialog"
+import { useAdminProfilesWithEmails } from "@/hooks/useAdminProfilesWithEmails"
+import { useRealtimeIncidentReportsWithTrust } from "@/hooks/useRealtimeIncidentReportsWithTrust"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import "jspdf/dist/polyfills.es"
 
-type Report = Database["public"]["Tables"]["reports"]["Row"]
-import { IncidentDetailDialog, type WitnessDisplay } from "@/components/incidents/incident-detail-dialog"
+type IncidentReport = Database["public"]["Tables"]["reports"]["Row"] &
+	Database["public"]["Views"]["incident_reports_with_trust"]["Row"]
 
 const isWitnessRecord = (value: unknown): value is Witness => {
 	if (!value || typeof value !== "object") return false
@@ -60,17 +66,18 @@ const isWitnessRecord = (value: unknown): value is Witness => {
 }
 
 export default function IncidentsPage() {
-	const { reports, loading, error, isConnected } = useRealtimeReports()
-	const { categories, loading: categoriesLoading } = useCategories()
+	const { reports, loading, error } = useRealtimeIncidentReportsWithTrust()
+	const { categories } = useCategories()
 	const { officers, loading: officersLoading } = useOfficers()
-	const { profiles } = useProfiles()
+	const { profilesById } = useAdminProfilesWithEmails()
 	const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set())
 	const [includeArchived, setIncludeArchived] = useState(false)
 	const [searchQuery, setSearchQuery] = useState("")
 	const [statusFilter, setStatusFilter] = useState("all")
 	const [categoryFilter, setCategoryFilter] = useState("all")
 	const [subcategoryFilter, setSubcategoryFilter] = useState("all")
-	const [sortField, setSortField] = useState<keyof Report | null>("id")
+	const [trustFilter, setTrustFilter] = useState("all")
+	const [sortField, setSortField] = useState<keyof IncidentReport | null>("id")
 	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 	const [startDate, setStartDate] = useState("")
 	const [endDate, setEndDate] = useState("")
@@ -82,7 +89,7 @@ export default function IncidentsPage() {
 	const [isMerging, setIsMerging] = useState(false)
 	const [isMismatchDialogOpen, setIsMismatchDialogOpen] = useState(false)
 	const [highlightedReportIds, setHighlightedReportIds] = useState<Set<number>>(new Set())
-	const previousReportsRef = useRef<Report[]>([])
+	const previousReportsRef = useRef<IncidentReport[]>([])
 	const topScrollRef = useRef<HTMLDivElement>(null)
 	const topScrollContentRef = useRef<HTMLDivElement>(null)
 	const tableWrapperRef = useRef<HTMLDivElement | null>(null)
@@ -104,7 +111,7 @@ export default function IncidentsPage() {
 		}
 	}, [])
 
-	const isReportArchived = useCallback((report: Report) => {
+	const isReportArchived = useCallback((report: IncidentReport) => {
 		const isArchivedFlag = Boolean(report.is_archived)
 		const isArchivedStatus = report.status === "archived"
 		const isLocallyArchived = archivedIds.has(report.id.toString())
@@ -126,7 +133,7 @@ export default function IncidentsPage() {
 		return category.sub_categories[subcategoryIndex] || "Unknown Subcategory"
 	}
 
-	const selectedReportsForMerge = useMemo<Report[]>(() => {
+	const selectedReportsForMerge = useMemo<IncidentReport[]>(() => {
 		if (selectedReportIdsForMerge.size === 0) return []
 
 		return reports.filter((report) => selectedReportIdsForMerge.has(report.id))
@@ -166,7 +173,7 @@ export default function IncidentsPage() {
 	const mergeSelectionCount = selectedReportIdsForMerge.size
 	const mergeButtonLabel = canMergeSelectedReports ? `Merge ${mergeSelectionCount} Selected` : `Merge Selected (${mergeSelectionCount}/2+)`
 
-	const toggleMergeSelection = (report: Report, forceSelect?: boolean) => {
+	const toggleMergeSelection = (report: IncidentReport, forceSelect?: boolean) => {
 		if (isReportArchived(report)) return
 
 		setSelectedReportIdsForMerge((prev) => {
@@ -528,6 +535,10 @@ export default function IncidentsPage() {
 			filters.push(`${statusFilter} status`)
 		}
 
+		if (trustFilter !== "all") {
+			filters.push(`${getTrustLevelLabel(Number(trustFilter))} trust`)
+		}
+
 		return `${title} - ${filters.join(", ")}`
 	}
 
@@ -607,18 +618,18 @@ export default function IncidentsPage() {
 
 	// Assignment dialog state
 	const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
-	const [selectedReportForAssignment, setSelectedReportForAssignment] = useState<Report | null>(null)
+	const [selectedReportForAssignment, setSelectedReportForAssignment] = useState<IncidentReport | null>(null)
 	const [selectedOfficers, setSelectedOfficers] = useState<Set<string>>(new Set())
 	const [officerSearchQuery, setOfficerSearchQuery] = useState("")
 	const [isAssigning, setIsAssigning] = useState(false)
 
 	// Confirmation dialog state
 	const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-	const [confirmArchiveReport, setConfirmArchiveReport] = useState<Report | null>(null)
+	const [confirmArchiveReport, setConfirmArchiveReport] = useState<IncidentReport | null>(null)
 
 	// Detail view dialog state
 	const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
-	const [selectedReportForDetail, setSelectedReportForDetail] = useState<Report | null>(null)
+	const [selectedReportForDetail, setSelectedReportForDetail] = useState<IncidentReport | null>(null)
 	const [isWitnessDialogOpen, setIsWitnessDialogOpen] = useState(false)
 	const [selectedWitnessForStatement, setSelectedWitnessForStatement] = useState<WitnessDisplay | null>(null)
 	const [downloadingAttachments, setDownloadingAttachments] = useState<Set<number>>(new Set())
@@ -705,8 +716,10 @@ export default function IncidentsPage() {
 				if (!isWitnessRecord(entry)) return null
 
 				const witnessData = entry
-				const profile = profiles?.find((profile) => profile.id === witnessData.user_id)
-				const nameParts = profile ? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean) : []
+				const profile = profilesById.get(witnessData.user_id)
+				const nameParts = profile
+					? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean)
+					: []
 				const fallbackName = witnessData.user_id.length > 8
 					? `Witness ${witnessData.user_id.slice(0, 8)}?`
 					: witnessData.user_id
@@ -722,7 +735,7 @@ export default function IncidentsPage() {
 				}
 			})
 			.filter((entry): entry is WitnessDisplay => entry !== null)
-	}, [profiles, selectedReportForDetail])
+	}, [profilesById, selectedReportForDetail])
 
 	const witnessCountDisplay = witnessEntries.length > 0
 		? String(witnessEntries.length)
@@ -896,6 +909,31 @@ export default function IncidentsPage() {
 		)
 	}
 
+	const getTrustLevelLabel = (score?: number | null) => {
+		const normalizedScore = Math.max(0, Math.min(3, Math.trunc(score ?? 0)))
+		const levels = ["Untrusted", "Low Trust", "Trusted", "Highly Trusted"]
+		return levels[normalizedScore] ?? "Untrusted"
+	}
+
+	const getTrustBadge = (score?: number | null) => {
+		const normalizedScore = Math.max(0, Math.min(3, Math.trunc(score ?? 0)))
+		const variants: ("destructive" | "warning" | "default" | "success")[] = [
+			"destructive",
+			"warning",
+			"default",
+			"success",
+		]
+		const icons = [ShieldAlert, Shield, ShieldCheck, ShieldCheck]
+		const Icon = icons[normalizedScore] ?? Shield
+
+		return (
+			<Badge variant={variants[normalizedScore] ?? "default"} className="flex items-center gap-1 w-fit">
+				<Icon className="h-3 w-3" />
+				{getTrustLevelLabel(normalizedScore)}
+			</Badge>
+		)
+	}
+
 	// Get subcategories for the selected category
 	const getSubcategoriesForCategory = (categoryId: string) => {
 		if (categoryId === "all" || !categories) return []
@@ -946,7 +984,7 @@ export default function IncidentsPage() {
 	}
 
 	// Helper to compute response time between report creation and arrival
-	const getResponseTime = (report: Report): string | null => {
+	const getResponseTime = (report: IncidentReport): string | null => {
 		if (!report.created_at || !report.arrived_at) return null
 
 		try {
@@ -981,6 +1019,10 @@ export default function IncidentsPage() {
 			(report.sub_category !== null && report.sub_category !== undefined &&
 				report.sub_category.toString() === subcategoryFilter)
 
+		const matchesTrust =
+			trustFilter === "all" ||
+			(report.reporter_trust_score ?? 0).toString() === trustFilter
+
 		let matchesDateRange = true
 		if (startDate || endDate) {
 			let reportDateMs = 0
@@ -994,7 +1036,7 @@ export default function IncidentsPage() {
 			matchesDateRange = reportDateMs >= startMs && reportDateMs <= endMs
 		}
 
-		return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory && matchesDateRange
+		return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory && matchesTrust && matchesDateRange
 	})
 
 	// Sort the filtered incidents
@@ -1030,7 +1072,7 @@ export default function IncidentsPage() {
 
 		// Handle incident date + time comparison
 		if (sortField === "incident_date") {
-			const parseDateTime = (r: Report) => {
+			const parseDateTime = (r: IncidentReport) => {
 				const dateStr = r.incident_date as string
 				if (!dateStr) return 0
 				if (isIsoDateOnly(dateStr)) {
@@ -1124,7 +1166,7 @@ export default function IncidentsPage() {
 		}
 	}, [loading, sortedIncidents.length])
 
-	const handleSort = (field: keyof Report) => {
+	const handleSort = (field: keyof IncidentReport) => {
 		if (sortField === field) {
 			setSortDirection(sortDirection === "asc" ? "desc" : "asc")
 		} else {
@@ -1133,7 +1175,7 @@ export default function IncidentsPage() {
 		}
 	}
 
-	const getSortIcon = (field: keyof Report) => {
+	const getSortIcon = (field: keyof IncidentReport) => {
 		if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />
 		return sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
 	}
@@ -1148,7 +1190,7 @@ export default function IncidentsPage() {
 
 	// Dialog state for editing status
 	const [isEditOpen, setIsEditOpen] = useState(false)
-	const [selectedReport, setSelectedReport] = useState<Report | null>(null)
+	const [selectedReport, setSelectedReport] = useState<IncidentReport | null>(null)
 	type ReportStatus = "pending" | "assigned" | "in-progress" | "resolved" | "cancelled" | "unresolved"
 	const [editedStatus, setEditedStatus] = useState<ReportStatus>("pending")
 	const [editedPoliceNotes, setEditedPoliceNotes] = useState<string>("")
@@ -1185,7 +1227,7 @@ export default function IncidentsPage() {
 		try {
 			const client = getDispatchClient()
 
-			const updateData: any = {}
+			const updateData: Partial<Database["public"]["Tables"]["reports"]["Update"]> = {}
 			if (statusChanged) {
 				updateData.status = editedStatus
 			}
@@ -1401,6 +1443,20 @@ export default function IncidentsPage() {
 													))}
 												</SelectContent>
 											</Select>
+
+											{/* Trust Filter */}
+											<Select value={trustFilter} onValueChange={setTrustFilter}>
+												<SelectTrigger className="w-full lg:w-[160px]">
+													<SelectValue placeholder="All Trust Levels" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="all">All Trust Levels</SelectItem>
+													<SelectItem value="3">Highly Trusted</SelectItem>
+													<SelectItem value="2">Trusted</SelectItem>
+													<SelectItem value="1">Low Trust</SelectItem>
+													<SelectItem value="0">Untrusted</SelectItem>
+												</SelectContent>
+											</Select>
 										</div>
 
 										{/* Second Row: Date Range, Archive Toggle, and Export */}
@@ -1549,6 +1605,15 @@ export default function IncidentsPage() {
 																	{getSortIcon("status")}
 																</div>
 															</TableHead>
+															<TableHead
+																className="cursor-pointer hover:bg-muted/50 select-none"
+																onClick={() => handleSort("reporter_trust_score")}
+															>
+																<div className="flex items-center gap-2">
+																	Trust
+																	{getSortIcon("reporter_trust_score")}
+																</div>
+															</TableHead>
 															<TableHead className="text-right">Actions</TableHead>
 														</TableRow>
 													</TableHeader>
@@ -1619,6 +1684,14 @@ export default function IncidentsPage() {
 																		</div>
 																	</TableCell>
 																	<TableCell>{getStatusBadge(report.status)}</TableCell>
+																	<TableCell>
+																		<div className="flex flex-col gap-1">
+																			{getTrustBadge(report.reporter_trust_score)}
+																			<span className="text-xs text-muted-foreground">
+																				Score {report.reporter_trust_score ?? 0}
+																			</span>
+																		</div>
+																	</TableCell>
 																	<TableCell>
 																		<div className="flex justify-end gap-2">
 																			<Button
@@ -1825,8 +1898,7 @@ export default function IncidentsPage() {
 								{editedStatus === 'resolved' && (
 									<>
 										{(() => {
-											const reporter = profiles?.find(p => p.id === selectedReport?.reporter_id);
-											const currentTrust = reporter?.trust_score ?? 0;
+											const currentTrust = selectedReport?.reporter_trust_score ?? 0
 											if (currentTrust < 3) {
 												return (
 													<div className="flex items-center justify-between border p-3 rounded-md bg-green-50/50 border-green-100">
@@ -1840,9 +1912,9 @@ export default function IncidentsPage() {
 															disabled={saving}
 														/>
 													</div>
-												);
+												)
 											}
-											return null;
+											return null
 										})()}
 										<div>
 											<div className="text-sm text-muted-foreground mb-2">Police Notes</div>
