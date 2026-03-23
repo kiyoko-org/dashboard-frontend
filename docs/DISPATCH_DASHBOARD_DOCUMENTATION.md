@@ -134,12 +134,4 @@ This is the Add Hotline dialog for creating new emergency contact entries. The f
 
 *Figure 5.2.14 The Database Management Page*
 
-This is the Database Management page that allows administrators to manage incident categories and subcategories. The page has two main sections: "Add a new item" form at the top for creating new categories or subcategories, and a "Categories" table below showing existing categories with their associated subcategories. The form includes a dropdown to select the item type (categories), a Name input field, and an Add button to include subcategories. Each category in the table displays its name and all associated subcategories, with action buttons for editing and deleting entries.
-
-### 5.2.15 Database Categories Table
-
-![Database Full View](/screenshots/14a-database-full.png)
-
-*Figure 5.2.15 The Database Categories Table (Full View)*
-
-This figure shows the complete database categories table with all existing categories including Violent Crimes, Drug-Related, Traffic Incidents, Other Crimes, and Property Crimes. Each category row displays the category name and all its associated subcategories, enabling administrators to understand the full classification structure used for incident categorization in the system.
+This is the Database Management page that allows administrators to manage incident categories and subcategories. The page has two main sections: "Add a new item" form at the top for creating new categories or subcategories, and a "Categories" table below showing existing categories with their associated subcategories. The form includes a dropdown to select the item type (categories), a Name input field, and an Add button to include subcategories. The table displays all existing categories including Violent Crimes, Drug-Related, Traffic Incidents, Other Crimes, and Property Crimes, each with their associated subcategories and action buttons for editing and deleting entries.
