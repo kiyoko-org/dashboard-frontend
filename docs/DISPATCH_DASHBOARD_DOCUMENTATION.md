@@ -50,7 +50,29 @@ This is the Assign Officers dialog that appears when clicking the "Assign office
 
 This is the Report Details view that displays comprehensive information about a specific incident. The dialog shows the incident description, assigned officers, and other relevant details. Administrators can view the full context of the report including the description section and any officers currently assigned to handle the incident. A "Close" button is provided to return to the incidents list.
 
-### 5.2.7 Emergency Response Page
+### 5.2.7 Edit Incident Dialog
+
+![Edit Incident Dialog](/screenshots/15-edit-incident-dialog.png)
+
+*Figure 5.2.7 The Edit Incident Dialog*
+
+This is the Edit Incident dialog that allows administrators to modify incident details. The dialog displays the incident title as an editable text field, a Status dropdown with options (Pending, In Progress, Resolved, Cancelled), and a Category dropdown for reclassifying the incident. A Description textarea is provided for updating the incident details, along with an embedded map showing the incident location. The dialog provides "Save Changes" and "Cancel" buttons for confirming or discarding modifications.
+
+![Edit Incident Dropdowns](/screenshots/15b-edit-incident-category-dropdown.png)
+
+*Figure 5.2.8 The Edit Incident Dialog with Dropdowns Expanded*
+
+This figure shows the Edit Incident dialog with the dropdown menus expanded, revealing all available options. The Category dropdown includes Drug-Related, Other Crimes, Property Crimes, Traffic Incidents, and Violent Crimes. The Subcategory dropdown displays relevant subcategories based on the selected category (e.g., Shooting, Stabbing, Violence Against Women and Children for Violent Crimes). The Status dropdown shows the four incident states: Pending, In Progress, Resolved, and Cancelled.
+
+### 5.2.9 Archive Incident Dialog
+
+![Archive Incident Dialog](/screenshots/16-archive-incident-dialog.png)
+
+*Figure 5.2.9 The Archive Incident Dialog*
+
+This is the Archive Incident dialog that appears when archiving a resolved incident. The dialog displays a warning message indicating that the action cannot be undone, along with incident details including the ID, Title, Status, and Category. Administrators can confirm the archival by clicking the "Archive" button or cancel the operation using the "Cancel" button. This feature is only available for incidents with a Resolved status.
+
+### 5.2.10 Emergency Response Page
 
 ![Emergencies Page](/screenshots/07-emergencies-page.png)
 
