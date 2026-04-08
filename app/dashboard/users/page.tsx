@@ -50,13 +50,13 @@ interface UserData {
 	phone: string
 	role: string
 	status: string
-	verified: boolean
+	verified: boolean | null
 	reportsCount: number
 	joinedDate: string
 	lastActive: string
 	fcm_token: string
 	trust_score: number
-	trust_factors?: any
+	trust_factors?: unknown
 }
 
 export default function UsersPage() {
@@ -133,22 +133,24 @@ export default function UsersPage() {
 		return text.length > maxLength ? text.substring(0, maxLength) + "..." : text
 	}
 
-	const users: UserData[] = (profiles as any[] ?? []).map((p) => {
-		const fullName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ")
-		const email = p.email ?? ""
+	const users: UserData[] = profiles.map((profile) => {
+		const fullName = [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(" ")
+		const email = profile.email ?? ""
+		const verified = typeof profile.is_verified === "boolean" ? profile.is_verified : null
+
 		return {
-			id: p.id,
-			name: fullName || p.id,
+			id: profile.id,
+			name: fullName || profile.id,
 			email,
-			phone: "", // not present on profiles by default
-			role: p.role || "citizen",
+			phone: profile.phone_number ?? "",
+			role: profile.role || "citizen",
 			status: "active",
-			verified: false,
-			reportsCount: p.reports_count || 0,
-			joinedDate: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
-			lastActive: p.last_sign_in_at ? new Date(p.last_sign_in_at).toLocaleString() : "",
-			fcm_token: p.fcm_token || "",
-			trust_score: p.trust_score ?? 0,
+			verified,
+			reportsCount: profile.reports_count || 0,
+			joinedDate: profile.joined_date ? new Date(profile.joined_date).toLocaleDateString() : "",
+			lastActive: profile.last_sign_in_at ? new Date(profile.last_sign_in_at).toLocaleString() : "",
+			fcm_token: profile.fcm_token ?? "",
+			trust_score: profile.trust_score ?? 0,
 		}
 	})
 
@@ -164,6 +166,18 @@ export default function UsersPage() {
 				{levels[score] || 'Unknown'}
 			</Badge>
 		)
+	}
+
+	const getVerificationBadge = (verified: boolean | null) => {
+		if (verified === true) {
+			return <Badge variant="success">Verified</Badge>
+		}
+
+		if (verified === false) {
+			return <Badge variant="warning">Unverified</Badge>
+		}
+
+		return <Badge variant="secondary">Legacy/Admin</Badge>
 	}
 
 	const getRoleBadge = (role: string) => {
@@ -193,7 +207,7 @@ export default function UsersPage() {
 
 	const stats = {
 		total: users.length,
-		verified: users.filter((u) => u.verified).length,
+		verified: users.filter((u) => u.verified === true).length,
 		highlyTrusted: users.filter((u) => u.trust_score === 3).length,
 	}
 
@@ -415,6 +429,7 @@ export default function UsersPage() {
 								<TableRow>
 									<TableHead>User</TableHead>
 									<TableHead>Contact</TableHead>
+									<TableHead>Verification</TableHead>
 									<TableHead>Trust Level</TableHead>
 									<TableHead>Reports</TableHead>
 									<TableHead>Joined</TableHead>
@@ -465,6 +480,9 @@ export default function UsersPage() {
 													{user.email}
 												</div>
 											</div>
+										</TableCell>
+										<TableCell>
+											{getVerificationBadge(user.verified)}
 										</TableCell>
 										<TableCell>
 											<button
