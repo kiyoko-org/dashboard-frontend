@@ -1583,7 +1583,7 @@ export default function IncidentsPage() {
 																</div>
 															</TableHead>
 															<TableHead
-																className="min-w-[20rem] cursor-pointer hover:bg-muted/50 select-none"
+																className="min-w-[18rem] cursor-pointer hover:bg-muted/50 select-none"
 																onClick={() => handleSort("what_happened")}
 															>
 																<div className="flex items-center gap-2">
@@ -1657,7 +1657,7 @@ export default function IncidentsPage() {
 																	<TableCell className="font-medium">
 																		#{String(report.id).slice(-8)}
 																	</TableCell>
-																	<TableCell className="min-w-[20rem] max-w-[20rem]">
+																	<TableCell className="min-w-[18rem] max-w-[18rem]">
 																		<div className="flex items-center gap-2">
 																			<AlertTriangle className="h-4 w-4 text-red-500" />
 																			<div className="flex flex-col min-w-0">

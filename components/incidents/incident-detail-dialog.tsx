@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Dialog, DialogPortal, DialogOverlay, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -157,6 +158,28 @@ export function IncidentDetailDialog({
         }
     }
 
+    const [showLocationMap, setShowLocationMap] = useState(false)
+
+    useEffect(() => {
+        setShowLocationMap(false)
+    }, [open, report?.id])
+
+    const latitude = report?.latitude
+    const longitude = report?.longitude
+    const hasCoordinates =
+        typeof latitude === "number" &&
+        Number.isFinite(latitude) &&
+        typeof longitude === "number" &&
+        Number.isFinite(longitude)
+
+    const coordinatesLabel = hasCoordinates ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : null
+    const mapEmbedUrl = hasCoordinates
+        ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=16&output=embed`
+        : null
+    const googleMapsUrl = hasCoordinates
+        ? `https://www.google.com/maps?q=${latitude},${longitude}`
+        : null
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogPortal>
@@ -196,98 +219,120 @@ export function IncidentDetailDialog({
 
                     {report && (
                         <div className="p-6 space-y-8">
-                            {/* Main Info Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-6">
-                                    {/* Incident Information & Location */}
-                                    <div className="space-y-6">
-                                        {/* What happened & Date/Time */}
-                                        <div className="flex justify-between items-start gap-4">
-                                            <div className="flex-1 min-w-0">
-                                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">What happened</label>
-                                                <div className="font-medium text-base mt-1 line-clamp-3">
-                                                    {getIncidentSummary(report, { collapseWhitespace: true })}
-                                                </div>
-                                            </div>
-                                            <div className="text-right shrink-0">
-                                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date & Time</label>
-                                                <div className="font-medium text-lg mt-0.5 flex items-center justify-end gap-2">
-                                                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                    <span>{report.incident_date}</span>
-                                                    <span className="text-muted-foreground">•</span>
-                                                    <span>{report.incident_time || 'N/A'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                            {/* Primary Narrative */}
+                            <section className="space-y-3">
+                                <h3 className="text-base font-semibold text-foreground">What happened</h3>
+                                <div className="rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap">
+                                    {getIncidentSummary(report, { fallback: "No description provided." })}
+                                </div>
+                            </section>
 
-                                        {/* Location */}
-                                        <div>
-                                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Location</label>
-                                            <div className="font-medium text-lg mt-0.5">{report.street_address || 'Not specified'}</div>
-                                            {report.nearby_landmark && (
-                                                <div className="text-sm text-muted-foreground mt-1">
-                                                    Near: {report.nearby_landmark}
-                                                </div>
-                                            )}
-                                            {(report.latitude || report.longitude) && (
-                                                <div className="text-xs font-mono text-muted-foreground mt-1">
-                                                    LAT: {report.latitude} • LONG: {report.longitude}
-                                                </div>
-                                            )}
+                            {/* Quick Facts */}
+                            <section className="space-y-3">
+                                <h3 className="text-base font-semibold text-foreground">Incident details</h3>
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="rounded-lg border p-4">
+                                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date & Time</div>
+                                        <div className="mt-2 flex items-center gap-2 text-sm font-medium">
+                                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                                            <span>{report.incident_date || "N/A"}</span>
+                                            <span className="text-muted-foreground">•</span>
+                                            <span>{report.incident_time || "N/A"}</span>
                                         </div>
-
-                                        {/* Category */}
-                                        <div>
-                                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Category</label>
-                                            <div className="mt-1 flex flex-wrap gap-2">
-                                                <Badge variant="secondary" className="px-2 py-0.5 text-sm font-normal">
-                                                    {getCategoryName(report.category_id)}
+                                    </div>
+                                    <div className="rounded-lg border p-4">
+                                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Category</div>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            <Badge variant="secondary" className="px-2 py-0.5 text-sm font-normal">
+                                                {getCategoryName(report.category_id)}
+                                            </Badge>
+                                            {report.sub_category !== null && (
+                                                <Badge variant="outline" className="px-2 py-0.5 text-sm font-normal text-muted-foreground">
+                                                    {getSubcategoryName(report.category_id, report.sub_category)}
                                                 </Badge>
-                                                {report.sub_category !== null && (
-                                                    <Badge variant="outline" className="px-2 py-0.5 text-sm font-normal text-muted-foreground">
-                                                        {getSubcategoryName(report.category_id, report.sub_category)}
-                                                    </Badge>
-                                                )}
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
+                            </section>
 
-                                <div className="space-y-8">
-                                    {/* Description Section */}
-                                    <section>
-                                        <h3 className="text-base font-semibold mb-4 text-foreground">What happened</h3>
-                                        <div className="bg-muted/50 p-4 rounded-lg text-sm leading-relaxed whitespace-pre-wrap border min-h-[120px]">
-                                            {getIncidentSummary(report, { fallback: "No description provided." })}
-                                        </div>
-                                    </section>
+                            {/* Location */}
+                            <section className="space-y-3">
+                                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                    Location
+                                </h3>
+                                <div className="rounded-lg border p-4 space-y-3">
+                                    <div className="font-medium">{report.street_address || "Not specified"}</div>
+                                    {report.nearby_landmark && (
+                                        <div className="text-sm text-muted-foreground">Near: {report.nearby_landmark}</div>
+                                    )}
 
-                                    {/* Response Metrics */}
-                                    {report.arrived_at && (
-                                        <section className="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50">
-                                            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
-                                                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                                                Response Metrics
-                                            </h4>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <div className="text-xs text-blue-600/80 dark:text-blue-300/80 mb-1">Arrived At</div>
-                                                    <div className="font-medium text-blue-900 dark:text-blue-100">
-                                                        {new Date(report.arrived_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs text-blue-600/80 dark:text-blue-300/80 mb-1">Response Time</div>
-                                                    <div className="font-medium text-blue-900 dark:text-blue-100">
-                                                        {getResponseTime(report) || 'N/A'}
-                                                    </div>
-                                                </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Coordinates</span>
+                                        {hasCoordinates && coordinatesLabel ? (
+                                            <Button
+                                                type="button"
+                                                variant="link"
+                                                className="h-auto p-0 font-mono text-sm"
+                                                onClick={() => setShowLocationMap((prev) => !prev)}
+                                            >
+                                                {coordinatesLabel}
+                                            </Button>
+                                        ) : (
+                                            <span className="text-sm text-muted-foreground">No coordinates provided</span>
+                                        )}
+                                    </div>
+
+                                    {showLocationMap && mapEmbedUrl && (
+                                        <div className="space-y-2">
+                                            <div className="aspect-video overflow-hidden rounded-md border">
+                                                <iframe
+                                                    title={`Report ${report.id} location map`}
+                                                    src={mapEmbedUrl}
+                                                    allowFullScreen
+                                                    referrerPolicy="no-referrer-when-downgrade"
+                                                    className="h-full w-full border-0"
+                                                />
                                             </div>
-                                        </section>
+                                            {googleMapsUrl && (
+                                                <a
+                                                    href={googleMapsUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-xs text-primary underline"
+                                                >
+                                                    Open in Google Maps
+                                                </a>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
-                            </div>
+                            </section>
 
+                            {/* Response Metrics */}
+                            {report.arrived_at && (
+                                <section className="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50">
+                                    <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                                        Response Metrics
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <div className="text-xs text-blue-600/80 dark:text-blue-300/80 mb-1">Arrived At</div>
+                                            <div className="font-medium text-blue-900 dark:text-blue-100">
+                                                {new Date(report.arrived_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-blue-600/80 dark:text-blue-300/80 mb-1">Response Time</div>
+                                            <div className="font-medium text-blue-900 dark:text-blue-100">
+                                                {getResponseTime(report) || 'N/A'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            )}
 
 
                             {/* Witnesses Section */}
