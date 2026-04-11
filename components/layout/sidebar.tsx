@@ -15,6 +15,7 @@ import {
   LogOut,
   ShieldCheck,
   X,
+  BadgeCheck,
 } from "lucide-react"
 import { useState } from "react"
 import {
@@ -46,6 +47,11 @@ const navigation = [
     name: "Users",
     href: "/dashboard/users",
     icon: Users,
+  },
+  {
+    name: "Verification",
+    href: "/dashboard/verification",
+    icon: BadgeCheck,
   },
   {
     name: "Officers",
