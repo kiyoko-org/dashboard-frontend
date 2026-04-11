@@ -18,13 +18,13 @@ This is the main dashboard overview page displayed after successful authenticati
 
 ![Incidents Page](/screenshots/03-incidents-page.png)
 
-This is the Incident Management page that displays all reported incidents in a tabular format. The page shows incident statistics including Total Incidents, Pending, In Progress, Unresolved, and Resolved counts. Each incident entry displays the ID, Title, Category, Date & Time, Location, Status, and Trust Level. The page provides action buttons for each incident including "View details", "Assign officers", "Edit", and "Archive" functions.
+This is the Incident Management page that displays all reported incidents in a tabular format. The page shows incident statistics including Total Incidents, Pending, In Progress, Unresolved, and Resolved counts. Each incident entry displays the ID, What happened (summary), Category, Date & Time, Location, Status, and Trust Level. The page provides action buttons for each incident including "View details", "Assign officers", "Edit", and "Archive" functions.
 
 *5.2.4 The Incident Filtering*
 
 ![Incident Filtering](/screenshots/04-incidents-filter-status.png)
 
-This figure demonstrates the filtering functionality available on the Incidents page. Administrators can filter incidents by Status (All Statuses, Pending, Assigned, In Progress, Resolved, Cancelled), Category, Subcategory, and Trust Level. Additional filtering options include a search textbox for keyword search, date range pickers for filtering by incident date, and a toggle switch for additional filter criteria. These filtering capabilities enable administrators to quickly locate specific incidents based on multiple criteria.
+This figure demonstrates the filtering functionality available on the Incidents page. Administrators can filter incidents by Status (All Statuses, Pending, Assigned, In Progress, Resolved, Cancelled), Category, Subcategory, and Trust Level. Additional filtering options include a search textbox that matches the incident summary (what happened), category, and location fields, date range pickers for filtering by incident date, and a toggle switch for additional filter criteria. These filtering capabilities enable administrators to quickly locate specific incidents based on multiple criteria.
 
 *5.2.5 The Assign Officers Dialog*
 
@@ -42,7 +42,7 @@ This is the Report Details view that displays comprehensive information about a 
 
 ![Edit Incident Dialog](/screenshots/15-edit-incident-dialog.png)
 
-This is the Edit Incident dialog that allows administrators to modify incident details. The dialog displays the incident title as an editable text field, a Status dropdown with options (Pending, In Progress, Resolved, Cancelled), and a Category dropdown for reclassifying the incident. A Description textarea is provided for updating the incident details, along with an embedded map showing the incident location. The dialog provides "Save Changes" and "Cancel" buttons for confirming or discarding modifications.
+This is the Edit Incident dialog that allows administrators to modify incident workflow details. The dialog shows the report ID and incident summary (what happened), then provides controls for Status, Category, and Subcategory updates. When marking a report as resolved, administrators can add police notes and optionally increase trust score. When cancelling, a cancellation reason is required. The dialog provides save and cancel actions for confirming or discarding modifications.
 
 *5.2.8 The Edit Incident Dropdowns*
 
@@ -54,7 +54,7 @@ This figure shows the Edit Incident dialog with the dropdown menus expanded, rev
 
 ![Archive Incident Dialog](/screenshots/16-archive-incident-dialog.png)
 
-This is the Archive Incident dialog that appears when archiving a resolved incident. The dialog displays a warning message indicating that the action cannot be undone, along with incident details including the ID, Title, Status, and Category. Administrators can confirm the archival by clicking the "Archive" button or cancel the operation using the "Cancel" button. This feature is only available for incidents with a Resolved status.
+This is the Archive Incident dialog that appears when archiving a resolved incident. The dialog displays a warning message indicating that the action cannot be undone, along with incident details including the ID and incident summary (what happened). Administrators can confirm the archival by clicking the "Archive" button or cancel the operation using the "Cancel" button. This feature is only available for incidents with a Resolved status.
 
 *5.2.10 The Emergency Response Page*
 

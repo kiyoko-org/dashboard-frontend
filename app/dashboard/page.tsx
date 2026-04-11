@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
+import { getIncidentSummary } from "@/lib/incidents/summary"
 import {
   AlertTriangle,
   Target,
@@ -183,7 +184,10 @@ export default function DashboardPage() {
               )}
 
               {recent.map((report) => {
-                const title = report.incident_title || "Untitled incident"
+                const summary = getIncidentSummary(report, {
+                  collapseWhitespace: true,
+                  fallback: "No description yet. Follow up with the reporter.",
+                })
                 const category = getCategoryName(report.category_id)
                 const time = report.incident_time || new Date(report.created_at).toLocaleString()
                 const status = report.status || "pending"
@@ -198,7 +202,7 @@ export default function DashboardPage() {
                         <AlertTriangle className="h-5 w-5 text-red-600" />
                       </div>
                       <div>
-                        <h4 className="font-medium">{title}</h4>
+                        <h4 className="font-medium line-clamp-2">{summary}</h4>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-sm text-muted-foreground">
                             {category}

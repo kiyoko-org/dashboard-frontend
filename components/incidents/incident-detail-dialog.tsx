@@ -1,8 +1,9 @@
 import { Dialog, DialogPortal, DialogOverlay, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, Calendar, MapPin, Music, Video, FileText, File, ImageIcon, Download, ChevronRight } from "lucide-react"
+import { Calendar, MapPin, Music, Video, FileText, File, ImageIcon, Download, ChevronRight } from "lucide-react"
 import type { Database } from "dispatch-lib/database.types"
+import { getIncidentSummary } from "@/lib/incidents/summary"
 
 type Report = Database["public"]["Tables"]["reports"]["Row"]
 type Officer = Database["public"]["Tables"]["officers"]["Row"]
@@ -200,11 +201,13 @@ export function IncidentDetailDialog({
                                 <div className="space-y-6">
                                     {/* Incident Information & Location */}
                                     <div className="space-y-6">
-                                        {/* Title & Date/Time */}
+                                        {/* What happened & Date/Time */}
                                         <div className="flex justify-between items-start gap-4">
-                                            <div>
-                                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Title</label>
-                                                <div className="font-medium text-lg mt-0.5">{report.incident_title}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">What happened</label>
+                                                <div className="font-medium text-base mt-1 line-clamp-3">
+                                                    {getIncidentSummary(report, { collapseWhitespace: true })}
+                                                </div>
                                             </div>
                                             <div className="text-right shrink-0">
                                                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date & Time</label>
@@ -253,9 +256,9 @@ export function IncidentDetailDialog({
                                 <div className="space-y-8">
                                     {/* Description Section */}
                                     <section>
-                                        <h3 className="text-base font-semibold mb-4 text-foreground">Description</h3>
+                                        <h3 className="text-base font-semibold mb-4 text-foreground">What happened</h3>
                                         <div className="bg-muted/50 p-4 rounded-lg text-sm leading-relaxed whitespace-pre-wrap border min-h-[120px]">
-                                            {report.what_happened || "No description provided."}
+                                            {getIncidentSummary(report, { fallback: "No description provided." })}
                                         </div>
                                     </section>
 

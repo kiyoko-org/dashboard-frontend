@@ -51,6 +51,7 @@ import type { Witness } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
 import { IncidentDetailDialog, type WitnessDisplay } from "@/components/incidents/incident-detail-dialog"
 import { useAdminProfilesWithEmails } from "@/hooks/useAdminProfilesWithEmails"
+import { getIncidentSummary } from "@/lib/incidents/summary"
 import { useRealtimeIncidentReportsWithTrust } from "@/hooks/useRealtimeIncidentReportsWithTrust"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -485,8 +486,13 @@ export default function IncidentsPage() {
 		if (newReports.length > 0 && previousReportsRef.current.length > 0) {
 			// Show toast for each new report
 			newReports.forEach(report => {
-				toast.info(`New Incident: ${report.incident_title || 'Untitled'}`, {
-					description: report.street_address || 'Location unknown',
+				const summaryPreview = getIncidentSummary(report, {
+					collapseWhitespace: true,
+					maxLength: 72,
+				})
+				const locationPreview = report.street_address?.trim() || "Location unknown"
+				toast.info("New incident reported", {
+					description: `${summaryPreview} • ${locationPreview}`,
 					duration: 5000,
 				})
 			})
@@ -580,14 +586,14 @@ export default function IncidentsPage() {
 
 			const tableData = sortedIncidents.map((report) => [
 				String(report.id).slice(-8),
-				report.incident_title || "",
+				getIncidentSummary(report, { collapseWhitespace: true, maxLength: 140 }),
 				getCategoryName(report.category_id),
 				report.incident_date || "",
 				report.street_address || "",
 				report.status || "unknown",
 			])
 
-			const columns = ["ID", "Title", "Category", "Date", "Location", "Status"]
+			const columns = ["ID", "What happened", "Category", "Date", "Location", "Status"]
 
 			autoTable(doc, {
 				head: [columns],
@@ -1001,13 +1007,13 @@ export default function IncidentsPage() {
 
 	const filteredIncidents = visibleReports.filter((report) => {
 		const q = (searchQuery ?? '').toLowerCase()
-		const title = String(report.incident_title ?? '').toLowerCase()
+		const summary = getIncidentSummary(report, { collapseWhitespace: true }).toLowerCase()
 		const street = String(report.street_address ?? '').toLowerCase()
 		const categoryName = getCategoryName(report.category_id).toLowerCase()
 		const subcategoryName = getSubcategoryName(report.category_id, report.sub_category).toLowerCase()
 
 		const matchesSearch =
-			title.includes(q) || street.includes(q) || categoryName.includes(q) || subcategoryName.includes(q)
+			summary.includes(q) || street.includes(q) || categoryName.includes(q) || subcategoryName.includes(q)
 
 		const matchesStatus =
 			statusFilter === "all" || (report.status ?? '').toString() === statusFilter
@@ -1042,6 +1048,13 @@ export default function IncidentsPage() {
 	// Sort the filtered incidents
 	const sortedIncidents = [...filteredIncidents].sort((a, b) => {
 		if (!sortField) return 0
+
+		if (sortField === "what_happened") {
+			const aSummary = getIncidentSummary(a, { collapseWhitespace: true })
+			const bSummary = getIncidentSummary(b, { collapseWhitespace: true })
+			const comparison = aSummary.localeCompare(bSummary)
+			return sortDirection === "asc" ? comparison : -comparison
+		}
 
 		const aValue = a[sortField]
 		const bValue = b[sortField]
@@ -1395,6 +1408,7 @@ export default function IncidentsPage() {
 													value={searchQuery}
 													onChange={(e) => setSearchQuery(e.target.value)}
 													className="pl-9"
+													placeholder="Search summary, category, or location"
 												/>
 											</div>
 
@@ -1570,11 +1584,11 @@ export default function IncidentsPage() {
 															</TableHead>
 															<TableHead
 																className="cursor-pointer hover:bg-muted/50 select-none"
-																onClick={() => handleSort("incident_title")}
+																onClick={() => handleSort("what_happened")}
 															>
 																<div className="flex items-center gap-2">
-																	Title
-																	{getSortIcon("incident_title")}
+																	What happened
+																	{getSortIcon("what_happened")}
 																</div>
 															</TableHead>
 															<TableHead
@@ -1627,6 +1641,7 @@ export default function IncidentsPage() {
 																isSelected ? "bg-muted/40" : "",
 																isHighlighted ? "animate-highlight-fade" : ""
 															].filter(Boolean).join(" ") || undefined
+															const summary = getIncidentSummary(report, { collapseWhitespace: true })
 															return (
 																<TableRow key={report.id} className={rowClass}>
 																	<TableCell className="w-[60px]">
@@ -1646,7 +1661,7 @@ export default function IncidentsPage() {
 																		<div className="flex items-center gap-2">
 																			<AlertTriangle className="h-4 w-4 text-red-500" />
 																			<div className="flex flex-col">
-																				<span className="font-medium">{report.incident_title}</span>
+																				<span className="font-medium line-clamp-2" title={summary}>{summary}</span>
 																				{report.status === 'cancelled' && report.cancellation_reason && (
 																					<Badge variant="outline" className="w-fit h-4 text-[10px] uppercase px-1 border-red-200 text-red-700 bg-red-50">
 																						{report.cancellation_reason}
@@ -1795,7 +1810,11 @@ export default function IncidentsPage() {
 							<div className="space-y-4">
 								<div>
 									<div className="text-sm text-muted-foreground">Report</div>
-									<div className="font-medium">{selectedReport?.incident_title}</div>
+									<div className="font-medium">
+										{selectedReport
+											? getIncidentSummary(selectedReport, { collapseWhitespace: true })
+											: "No description provided"}
+									</div>
 									<div className="text-xs text-muted-foreground">#{String(selectedReport?.id ?? "").slice(-8)}</div>
 								</div>
 								<div>
@@ -1996,7 +2015,11 @@ export default function IncidentsPage() {
 							<div className="space-y-4">
 								<div>
 									<div className="text-sm text-muted-foreground">Report</div>
-									<div className="font-medium">{selectedReportForAssignment?.incident_title}</div>
+									<div className="font-medium">
+										{selectedReportForAssignment
+											? getIncidentSummary(selectedReportForAssignment, { collapseWhitespace: true })
+											: "No description provided"}
+									</div>
 									<div className="text-xs text-muted-foreground">#{String(selectedReportForAssignment?.id ?? "").slice(-8)}</div>
 								</div>
 
@@ -2229,7 +2252,7 @@ export default function IncidentsPage() {
 												if (selectedReportForAssignment.status !== 'assigned') {
 													const { data, error } = await client.updateReport(selectedReportForAssignment.id, { status: 'assigned' })
 
-													console.log("Report status updated to assigned:", selectedReportForAssignment.id, selectedReportForAssignment.incident_title)
+													console.log("Report status updated to assigned:", selectedReportForAssignment.id)
 
 													console.log("Update report status result:", { data, error })
 												}
@@ -2294,6 +2317,7 @@ export default function IncidentsPage() {
 										{selectedReportsForMerge.map((report) => {
 											const isPrimary = mergePrimaryId === report.id
 											const attachmentsCount = Array.isArray(report.attachments) ? report.attachments.length : 0
+											const summary = getIncidentSummary(report, { collapseWhitespace: true })
 											return (
 												<button
 													type="button"
@@ -2307,9 +2331,9 @@ export default function IncidentsPage() {
 															{isPrimary ? "Main" : "Will Archive"}
 														</Badge>
 													</div>
-													<div className="mt-2 font-semibold">
-														{report.incident_title || "Untitled incident"}
-													</div>
+													<p className="mt-2 font-semibold leading-snug line-clamp-3" title={summary}>
+														{summary}
+													</p>
 													{report.street_address && (
 														<div className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
 															<MapPin className="mt-0.5 h-3.5 w-3.5" />
@@ -2321,11 +2345,6 @@ export default function IncidentsPage() {
 														<span>{report.incident_date || "No date"}</span>
 														{report.incident_time && <span>{report.incident_time}</span>}
 													</div>
-													{report.what_happened && (
-														<p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
-															{report.what_happened}
-														</p>
-													)}
 													<div className="mt-3 flex items-center justify-end text-xs text-muted-foreground">
 														<span>{attachmentsCount} attachment{attachmentsCount === 1 ? "" : "s"}</span>
 													</div>
@@ -2572,7 +2591,15 @@ export default function IncidentsPage() {
 						<DialogHeader>
 							<DialogTitle>Archive Incident</DialogTitle>
 						</DialogHeader>
-						<p>Are you sure you want to archive &quot;{confirmArchiveReport?.incident_title}&quot;? This action will move the incident to archived status.</p>
+						<p>
+							Are you sure you want to archive report #{String(confirmArchiveReport?.id ?? "").slice(-8)}?
+							This action will move the incident to archived status.
+						</p>
+						{confirmArchiveReport && (
+							<p className="text-sm text-muted-foreground">
+								What happened: {getIncidentSummary(confirmArchiveReport, { collapseWhitespace: true, maxLength: 160 })}
+							</p>
+						)}
 						<div className="flex gap-2 justify-end">
 							<Button variant="outline" onClick={() => setConfirmArchiveReport(null)}>
 								Cancel
