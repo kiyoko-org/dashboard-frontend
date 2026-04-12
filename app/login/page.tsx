@@ -19,8 +19,9 @@ export default function LoginPage() {
     setError(null)
     setIsLoading(true)
 
-    const result = await signIn(email, password)
-    
+    const normalizedEmail = email.trim().toLowerCase()
+    const result = await signIn(normalizedEmail, password)
+
     if (result.error) {
       setError(result.error)
       setIsLoading(false)
@@ -51,6 +52,8 @@ export default function LoginPage() {
                 required
                 className="mt-1"
                 placeholder="admin@example.com"
+                maxLength={254}
+                autoComplete="email"
               />
             </div>
 
@@ -66,6 +69,7 @@ export default function LoginPage() {
                 required
                 className="mt-1"
                 placeholder="••••••••"
+                autoComplete="current-password"
               />
             </div>
           </div>

@@ -22,6 +22,15 @@ import { Header } from "@/components/layout/header"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { z } from "zod"
 
+const BADGE_NUMBER_LENGTH = 6
+const NAME_MAX_LENGTH = 20
+const EMAIL_MAX_LENGTH = 254
+const RANK_INPUT_MAX_LENGTH = 50
+
+const normalizeInlineText = (value: string) => value.replace(/\s+/g, " ").trim()
+const sanitizeDigits = (value: string, maxLength: number) => value.replace(/\D/g, "").slice(0, maxLength)
+const normalizeEmailForSubmit = (value: string) => value.trim().toLowerCase()
+
 // Philippine Police Ranks (PNP) - from highest to lowest
 const PHILIPPINE_POLICE_RANKS = [
 	// Commissioned Officers
@@ -42,56 +51,55 @@ const PHILIPPINE_POLICE_RANKS = [
 	"Police Staff Sergeant (PSSg)",
 	"Police Corporal (PCpl)",
 	"Patrolman/Patrolwoman (Pat)",
-]
+] as const
+
+const personNameSchema = z
+	.string()
+	.transform(normalizeInlineText)
+	.pipe(
+		z
+			.string()
+			.min(2, "Name must be at least 2 characters")
+			.max(NAME_MAX_LENGTH, `Name must be at most ${NAME_MAX_LENGTH} characters`),
+	)
+
+const optionalPersonNameSchema = z
+	.string()
+	.transform(normalizeInlineText)
+	.pipe(
+		z
+			.string()
+			.max(NAME_MAX_LENGTH, `Name must be at most ${NAME_MAX_LENGTH} characters`)
+	)
+	.refine(
+		(value) => value.length === 0 || value.length >= 2,
+		"Name must be at least 2 characters when provided",
+	)
 
 const officerSchema = z.object({
-	badge_number: z.string().regex(/^\d+$/, {
-		message: 'String must contain only digits (0-9).',
-	}).min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
-	rank: z.string().min(1, "Rank is required"),
-	email: z.string().email("Invalid email address"),
-	first_name: z
+	badge_number: z
+		.string()
+		.regex(new RegExp(`^\\d{${BADGE_NUMBER_LENGTH}}$`), `Badge number must be exactly ${BADGE_NUMBER_LENGTH} digits`),
+	rank: z.enum(PHILIPPINE_POLICE_RANKS, {
+		message: "Select a valid police rank",
+	}),
+	email: z
 		.string()
 		.trim()
-		.min(2, "First name must be at least 2 characters")
-		.max(20, "First name must be at most 20 characters"),
-	middle_name: z
-		.string()
-		.trim()
-		.max(20, "Middle name must be at most 20 characters")
-		.refine(
-			(value) => value.length === 0 || value.length >= 2,
-			"Middle name must be at least 2 characters"
-		),
-	last_name: z
-		.string()
-		.trim()
-		.min(2, "Last name must be at least 2 characters")
-		.max(20, "Last name must be at most 20 characters"),
+		.max(EMAIL_MAX_LENGTH, `Email must be at most ${EMAIL_MAX_LENGTH} characters`)
+		.email("Invalid email address"),
+	first_name: personNameSchema,
+	middle_name: optionalPersonNameSchema,
+	last_name: personNameSchema,
 }) as any
 
 const editOfficerSchema = z.object({
-	badge_number: z.string().regex(/^\d+$/, {
-		message: 'String must contain only digits (0-9).',
-	}).min(6, "Badge number is required").max(6, "Badge number must be 6 digits"),
-	first_name: z
+	badge_number: z
 		.string()
-		.trim()
-		.min(2, "First name must be at least 2 characters")
-		.max(20, "First name must be at most 20 characters"),
-	middle_name: z
-		.string()
-		.trim()
-		.max(20, "Middle name must be at most 20 characters")
-		.refine(
-			(value) => value.length === 0 || value.length >= 2,
-			"Middle name must be at least 2 characters"
-		),
-	last_name: z
-		.string()
-		.trim()
-		.min(2, "Last name must be at least 2 characters")
-		.max(20, "Last name must be at most 20 characters"),
+		.regex(new RegExp(`^\\d{${BADGE_NUMBER_LENGTH}}$`), `Badge number must be exactly ${BADGE_NUMBER_LENGTH} digits`),
+	first_name: personNameSchema,
+	middle_name: optionalPersonNameSchema,
+	last_name: personNameSchema,
 }) as any
 
 export default function OfficersPage() {
@@ -153,16 +161,26 @@ export default function OfficersPage() {
 				setErrorMessage(null)
 				setSuccessMessage(null)
 
+				const normalizedValue = {
+					badge_number: sanitizeDigits(value.badge_number, BADGE_NUMBER_LENGTH),
+					email: normalizeEmailForSubmit(value.email),
+					rank: value.rank,
+					first_name: normalizeInlineText(value.first_name),
+					middle_name: normalizeInlineText(value.middle_name),
+					last_name: normalizeInlineText(value.last_name),
+				}
+				officerSchema.parse(normalizedValue)
+
 				const generatedPassword = generatePassword(6)
 
 				const client = getDispatchClient()
 				const result = await client.createOfficer(
-					value.badge_number,
-					value.email,
-					value.rank,
-					value.first_name,
-					value.middle_name,
-					value.last_name,
+					normalizedValue.badge_number,
+					normalizedValue.email,
+					normalizedValue.rank,
+					normalizedValue.first_name,
+					normalizedValue.middle_name,
+					normalizedValue.last_name,
 					generatedPassword
 				)
 
@@ -179,16 +197,16 @@ export default function OfficersPage() {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
-						email: value.email,
-						firstName: value.first_name,
-						lastName: value.last_name,
-						badgeNumber: value.badge_number,
-						rank: value.rank,
+						email: normalizedValue.email,
+						firstName: normalizedValue.first_name,
+						lastName: normalizedValue.last_name,
+						badgeNumber: normalizedValue.badge_number,
+						rank: normalizedValue.rank,
 						password: generatedPassword,
 					}),
 				}).catch((err) => console.error("Failed to send email:", err))
 
-				setSuccessMessage(`Officer ${value.first_name} ${value.last_name} created successfully!`)
+				setSuccessMessage(`Officer ${normalizedValue.first_name} ${normalizedValue.last_name} created successfully!`)
 				setAddOpen(false)
 				addForm.reset()
 			} catch (error) {
@@ -214,12 +232,15 @@ export default function OfficersPage() {
 				setErrorMessage(null)
 				setSuccessMessage(null)
 
-				const result = await updateOfficer(editingOfficer.id, {
-					badge_number: value.badge_number,
-					first_name: value.first_name,
-					middle_name: value.middle_name,
-					last_name: value.last_name
-				})
+				const normalizedValue = {
+					badge_number: sanitizeDigits(value.badge_number, BADGE_NUMBER_LENGTH),
+					first_name: normalizeInlineText(value.first_name),
+					middle_name: normalizeInlineText(value.middle_name),
+					last_name: normalizeInlineText(value.last_name),
+				}
+				editOfficerSchema.parse(normalizedValue)
+
+				const result = await updateOfficer(editingOfficer.id, normalizedValue)
 
 				if (result.error) {
 					console.error("something happened", result.error)
@@ -227,7 +248,7 @@ export default function OfficersPage() {
 					return
 				}
 
-				setSuccessMessage(`Officer ${value.first_name} ${value.last_name} updated successfully!`)
+				setSuccessMessage(`Officer ${normalizedValue.first_name} ${normalizedValue.last_name} updated successfully!`)
 				setEditOpen(false)
 				setEditingOfficer(null)
 				editForm.reset()
@@ -349,11 +370,13 @@ export default function OfficersPage() {
 													name={field.name}
 													value={field.state.value}
 													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													type="number"
+													onChange={(e) => field.handleChange(sanitizeDigits(e.target.value, BADGE_NUMBER_LENGTH))}
+													type="text"
+													inputMode="numeric"
 													aria-invalid={isInvalid}
-													placeholder="12345"
+													placeholder="123456"
 													autoComplete="off"
+													maxLength={BADGE_NUMBER_LENGTH}
 												/>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>
@@ -383,6 +406,7 @@ export default function OfficersPage() {
 														aria-invalid={isInvalid}
 														placeholder="Type to search ranks..."
 														autoComplete="off"
+														maxLength={RANK_INPUT_MAX_LENGTH}
 													/>
 													{showRankDropdown && (
 														<div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -430,9 +454,11 @@ export default function OfficersPage() {
 												value={field.state.value}
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
+												type="email"
 												aria-invalid={isInvalid}
 												placeholder="example@gmail.com"
 												autoComplete="off"
+												maxLength={EMAIL_MAX_LENGTH}
 											/>
 											{isInvalid && <FieldError errors={field.state.meta.errors} />}
 										</Field>
@@ -454,11 +480,15 @@ export default function OfficersPage() {
 													id={field.name}
 													name={field.name}
 													value={field.state.value}
-													onBlur={field.handleBlur}
+													onBlur={() => {
+														field.handleChange(normalizeInlineText(field.state.value))
+														field.handleBlur()
+													}}
 													onChange={(e) => field.handleChange(e.target.value)}
 													aria-invalid={isInvalid}
 													placeholder="John"
 													autoComplete="off"
+													maxLength={NAME_MAX_LENGTH}
 												/>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>
@@ -478,11 +508,15 @@ export default function OfficersPage() {
 													id={field.name}
 													name={field.name}
 													value={field.state.value}
-													onBlur={field.handleBlur}
+													onBlur={() => {
+														field.handleChange(normalizeInlineText(field.state.value))
+														field.handleBlur()
+													}}
 													onChange={(e) => field.handleChange(e.target.value)}
 													aria-invalid={isInvalid}
 													placeholder="Doe"
 													autoComplete="off"
+													maxLength={NAME_MAX_LENGTH}
 												/>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>
@@ -502,11 +536,15 @@ export default function OfficersPage() {
 													id={field.name}
 													name={field.name}
 													value={field.state.value}
-													onBlur={field.handleBlur}
+													onBlur={() => {
+														field.handleChange(normalizeInlineText(field.state.value))
+														field.handleBlur()
+													}}
 													onChange={(e) => field.handleChange(e.target.value)}
 													aria-invalid={isInvalid}
 													placeholder="Doe"
 													autoComplete="off"
+													maxLength={NAME_MAX_LENGTH}
 												/>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>
@@ -567,11 +605,13 @@ export default function OfficersPage() {
 												name={field.name}
 												value={field.state.value}
 												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												type="number"
+												onChange={(e) => field.handleChange(sanitizeDigits(e.target.value, BADGE_NUMBER_LENGTH))}
+												type="text"
+												inputMode="numeric"
 												aria-invalid={isInvalid}
-												placeholder="12345"
+												placeholder="123456"
 												autoComplete="off"
+												maxLength={BADGE_NUMBER_LENGTH}
 											/>
 											{isInvalid && <FieldError errors={field.state.meta.errors} />}
 										</Field>
@@ -593,11 +633,15 @@ export default function OfficersPage() {
 													id={field.name}
 													name={field.name}
 													value={field.state.value}
-													onBlur={field.handleBlur}
+													onBlur={() => {
+														field.handleChange(normalizeInlineText(field.state.value))
+														field.handleBlur()
+													}}
 													onChange={(e) => field.handleChange(e.target.value)}
 													aria-invalid={isInvalid}
 													placeholder="John"
 													autoComplete="off"
+													maxLength={NAME_MAX_LENGTH}
 												/>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>
@@ -617,11 +661,15 @@ export default function OfficersPage() {
 													id={field.name}
 													name={field.name}
 													value={field.state.value}
-													onBlur={field.handleBlur}
+													onBlur={() => {
+														field.handleChange(normalizeInlineText(field.state.value))
+														field.handleBlur()
+													}}
 													onChange={(e) => field.handleChange(e.target.value)}
 													aria-invalid={isInvalid}
 													placeholder="Doe"
 													autoComplete="off"
+													maxLength={NAME_MAX_LENGTH}
 												/>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>
@@ -641,11 +689,15 @@ export default function OfficersPage() {
 													id={field.name}
 													name={field.name}
 													value={field.state.value}
-													onBlur={field.handleBlur}
+													onBlur={() => {
+														field.handleChange(normalizeInlineText(field.state.value))
+														field.handleBlur()
+													}}
 													onChange={(e) => field.handleChange(e.target.value)}
 													aria-invalid={isInvalid}
 													placeholder="Doe"
 													autoComplete="off"
+													maxLength={NAME_MAX_LENGTH}
 												/>
 												{isInvalid && <FieldError errors={field.state.meta.errors} />}
 											</Field>

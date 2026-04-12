@@ -56,9 +56,33 @@ import { useRealtimeIncidentReportsWithTrust } from "@/hooks/useRealtimeIncident
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import "jspdf/dist/polyfills.es"
+import { z } from "zod"
 
 type IncidentReport = Database["public"]["Tables"]["reports"]["Row"] &
 	Database["public"]["Views"]["incident_reports_with_trust"]["Row"]
+
+const INCIDENT_POLICE_NOTES_MAX_LENGTH = 1000
+
+const incidentDateRangeSchema = z.object({
+	startDate: z.string(),
+	endDate: z.string(),
+}).refine(
+	({ startDate, endDate }) => {
+		if (!startDate || !endDate) return true
+		return startDate <= endDate
+	},
+	{
+		message: "Start date cannot be later than end date",
+		path: ["endDate"],
+	},
+)
+
+const policeNotesSchema = z.string().trim().max(
+	INCIDENT_POLICE_NOTES_MAX_LENGTH,
+	`Police notes must be ${INCIDENT_POLICE_NOTES_MAX_LENGTH} characters or less`,
+)
+
+const normalizePoliceNotes = (value: string) => value.trim()
 
 const isWitnessRecord = (value: unknown): value is Witness => {
 	if (!value || typeof value !== "object") return false
@@ -82,6 +106,24 @@ export default function IncidentsPage() {
 	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 	const [startDate, setStartDate] = useState("")
 	const [endDate, setEndDate] = useState("")
+	const handleStartDateChange = (value: string) => {
+		const validation = incidentDateRangeSchema.safeParse({ startDate: value, endDate })
+		if (validation.success) {
+			setStartDate(value)
+			return
+		}
+
+		toast.error("Start date cannot be later than end date")
+	}
+	const handleEndDateChange = (value: string) => {
+		const validation = incidentDateRangeSchema.safeParse({ startDate, endDate: value })
+		if (validation.success) {
+			setEndDate(value)
+			return
+		}
+
+		toast.error("End date cannot be earlier than start date")
+	}
 	const [isExporting, setIsExporting] = useState(false)
 	const [selectedReportIdsForMerge, setSelectedReportIdsForMerge] = useState<Set<number>>(new Set())
 	const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false)
@@ -1217,8 +1259,9 @@ export default function IncidentsPage() {
 	const handleSaveStatus = async () => {
 		if (!selectedReport) return
 
+		const normalizedPoliceNotes = normalizePoliceNotes(editedPoliceNotes)
 		const statusChanged = editedStatus !== (selectedReport.status ?? 'pending')
-		const policeNotesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
+		const policeNotesChanged = normalizedPoliceNotes !== normalizePoliceNotes(selectedReport.police_notes ?? "")
 		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
 		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
 		const cancellationReasonChanged = editedCancellationReason !== (selectedReport.cancellation_reason ?? null)
@@ -1231,6 +1274,12 @@ export default function IncidentsPage() {
 
 		if (editedStatus === 'cancelled' && !showCancelConfirm) {
 			setShowCancelConfirm(true)
+			return
+		}
+
+		const notesValidation = policeNotesSchema.safeParse(normalizedPoliceNotes)
+		if (!notesValidation.success) {
+			setUpdateError(notesValidation.error.issues[0]?.message ?? 'Invalid police notes')
 			return
 		}
 
@@ -1251,7 +1300,7 @@ export default function IncidentsPage() {
 				}
 			}
 			if (policeNotesChanged && (editedStatus === 'resolved' || selectedReport.status === 'resolved')) {
-				updateData.police_notes = editedPoliceNotes
+				updateData.police_notes = normalizedPoliceNotes
 			}
 			if (categoryChanged) {
 				updateData.category_id = editedCategory
@@ -1306,7 +1355,7 @@ export default function IncidentsPage() {
 		const statusChanged = editedStatus !== (selectedReport.status ?? 'pending')
 		const categoryChanged = editedCategory !== (selectedReport.category_id ?? null)
 		const subcategoryChanged = editedSubcategory !== (selectedReport.sub_category ?? null)
-		const notesChanged = editedPoliceNotes !== (selectedReport.police_notes ?? "")
+		const notesChanged = normalizePoliceNotes(editedPoliceNotes) !== normalizePoliceNotes(selectedReport.police_notes ?? "")
 		const cancellationReasonChanged = editedCancellationReason !== (selectedReport.cancellation_reason ?? null)
 		return statusChanged || categoryChanged || subcategoryChanged || notesChanged || cancellationReasonChanged || shouldIncrementTrust
 	}, [editedStatus, editedCategory, editedSubcategory, editedPoliceNotes, editedCancellationReason, shouldIncrementTrust, selectedReport])
@@ -1482,7 +1531,7 @@ export default function IncidentsPage() {
 													<Input
 														type="date"
 														value={startDate}
-														onChange={(e) => setStartDate(e.target.value)}
+														onChange={(e) => handleStartDateChange(e.target.value)}
 														className="flex-1 sm:w-[152px]"
 														placeholder="Start date"
 													/>
@@ -1491,7 +1540,7 @@ export default function IncidentsPage() {
 												<Input
 													type="date"
 													value={endDate}
-													onChange={(e) => setEndDate(e.target.value)}
+													onChange={(e) => handleEndDateChange(e.target.value)}
 													className="flex-1 sm:w-[152px]"
 													placeholder="End date"
 												/>
@@ -1935,10 +1984,15 @@ export default function IncidentsPage() {
 											<Textarea
 												value={editedPoliceNotes}
 												onChange={(e) => setEditedPoliceNotes(e.target.value)}
+												onBlur={() => setEditedPoliceNotes((current) => normalizePoliceNotes(current))}
 												placeholder="Enter police notes for this resolved incident..."
 												disabled={saving}
 												className="min-h-24"
+												maxLength={INCIDENT_POLICE_NOTES_MAX_LENGTH}
 											/>
+											<div className="mt-1 text-right text-xs text-muted-foreground">
+												{editedPoliceNotes.length}/{INCIDENT_POLICE_NOTES_MAX_LENGTH}
+											</div>
 										</div>
 									</>
 								)}

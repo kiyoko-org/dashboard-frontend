@@ -42,6 +42,7 @@ import { getDispatchClient } from "dispatch-lib"
 import type { Database } from "dispatch-lib/database.types"
 import { useAdminProfilesWithEmails } from "@/hooks/useAdminProfilesWithEmails"
 import { useVerificationRequests } from "@/hooks/useVerificationRequests"
+import { z } from "zod"
 
 type VerificationRequestRow = Database["public"]["Tables"]["verification_requests"]["Row"]
 type VerificationRequestStatus = Database["public"]["Enums"]["verification_request_status"]
@@ -50,6 +51,8 @@ type VerificationDocumentType = Database["public"]["Enums"]["verification_docume
 type StatusFilter = VerificationRequestStatus | "all"
 type DocumentTypeFilter = VerificationDocumentType | "all"
 
+const VERIFICATION_REVIEW_MAX_LENGTH = 500
+
 const REJECTION_NOTE_TEMPLATES = [
   "Photo is blurry",
   "ID details are unreadable",
@@ -57,7 +60,21 @@ const REJECTION_NOTE_TEMPLATES = [
   "Back image is missing",
   "Document does not match submission requirements",
   "Please resubmit a clearer image",
-]
+] as const
+
+const verificationReviewSchema = z.object({
+  decision: z.enum(["approved", "rejected"]),
+  reviewNotes: z.string().trim().max(VERIFICATION_REVIEW_MAX_LENGTH, `Review notes must be ${VERIFICATION_REVIEW_MAX_LENGTH} characters or less`),
+}).superRefine((value, ctx) => {
+  if (value.decision !== "rejected") return
+  if (value.reviewNotes.length > 0) return
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: ["reviewNotes"],
+    message: "Review notes are required when rejecting a request",
+  })
+})
 
 export default function VerificationPage() {
   const dispatchClient = getDispatchClient()
@@ -75,6 +92,7 @@ export default function VerificationPage() {
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<VerificationRequestRow | null>(null)
   const [reviewNotes, setReviewNotes] = useState("")
+  const [reviewFormError, setReviewFormError] = useState<string | null>(null)
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -106,11 +124,7 @@ export default function VerificationPage() {
       const email = (profile?.email ?? "").toLowerCase()
       const profileId = request.profile_id.toLowerCase()
 
-      return (
-        fullName.includes(search) ||
-        email.includes(search) ||
-        profileId.includes(search)
-      )
+      return fullName.includes(search) || email.includes(search) || profileId.includes(search)
     })
   }, [documentTypeFilter, profilesById, requests, searchQuery, statusFilter])
 
@@ -161,9 +175,9 @@ export default function VerificationPage() {
         if (!cancelled) {
           setBackPreviewUrl(backResult.data?.signedUrl ?? null)
         }
-      } catch (error) {
+      } catch (loadError) {
         if (cancelled) return
-        const message = error instanceof Error ? error.message : "Failed to load previews"
+        const message = loadError instanceof Error ? loadError.message : "Failed to load previews"
         setPreviewError(message)
       } finally {
         if (!cancelled) {
@@ -185,6 +199,7 @@ export default function VerificationPage() {
   const openReviewDialog = (request: VerificationRequestRow) => {
     setSelectedRequest(request)
     setReviewNotes(request.review_notes ?? "")
+    setReviewFormError(null)
     setReviewDialogOpen(true)
   }
 
@@ -193,6 +208,7 @@ export default function VerificationPage() {
     setReviewDialogOpen(false)
     setSelectedRequest(null)
     setReviewNotes("")
+    setReviewFormError(null)
     setFrontPreviewUrl(null)
     setBackPreviewUrl(null)
     setPreviewError(null)
@@ -202,10 +218,21 @@ export default function VerificationPage() {
     if (!selectedRequest) return
     if (selectedRequest.status !== "pending") return
 
+    const validationResult = verificationReviewSchema.safeParse({
+      decision,
+      reviewNotes,
+    })
+
+    if (!validationResult.success) {
+      setReviewFormError(validationResult.error.issues[0]?.message ?? "Invalid review notes")
+      return
+    }
+
+    setReviewFormError(null)
     setIsSubmittingReview(true)
 
     try {
-      const notes = reviewNotes.trim()
+      const notes = validationResult.data.reviewNotes
       const { error: reviewError } = await dispatchClient.reviewVerificationRequest(
         selectedRequest.id,
         decision,
@@ -223,8 +250,8 @@ export default function VerificationPage() {
           ? "Verification request approved successfully."
           : "Verification request rejected successfully.",
       )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to review request"
+    } catch (submitError) {
+      const message = submitError instanceof Error ? submitError.message : "Failed to review request"
       window.alert(message)
     } finally {
       setIsSubmittingReview(false)
@@ -426,10 +453,18 @@ export default function VerificationPage() {
                   <CardContent className="space-y-4">
                     <Textarea
                       value={reviewNotes}
-                      onChange={(event) => setReviewNotes(event.target.value)}
+                      onChange={(event) => {
+                        setReviewFormError(null)
+                        setReviewNotes(event.target.value)
+                      }}
+                      onBlur={() => setReviewNotes((current) => current.trim())}
                       placeholder="Optional review notes"
                       rows={8}
+                      maxLength={VERIFICATION_REVIEW_MAX_LENGTH}
                     />
+                    <div className="text-right text-xs text-muted-foreground">
+                      {reviewNotes.length}/{VERIFICATION_REVIEW_MAX_LENGTH}
+                    </div>
 
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Templates</p>
@@ -438,7 +473,10 @@ export default function VerificationPage() {
                           <button
                             key={template}
                             type="button"
-                            onClick={() => setReviewNotes(template)}
+                            onClick={() => {
+                              setReviewFormError(null)
+                              setReviewNotes(template)
+                            }}
                             className="rounded-full border px-3 py-1 text-xs text-muted-foreground transition hover:bg-muted"
                           >
                             {template}
@@ -446,6 +484,12 @@ export default function VerificationPage() {
                         ))}
                       </div>
                     </div>
+
+                    {reviewFormError ? (
+                      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                        {reviewFormError}
+                      </div>
+                    ) : null}
 
                     {selectedRequest.status !== "pending" ? (
                       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">

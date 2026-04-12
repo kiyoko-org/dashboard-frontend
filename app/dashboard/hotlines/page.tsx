@@ -1,7 +1,6 @@
 "use client"
 
 import { useHotlines } from "dispatch-lib"
-
 import {
 	Table,
 	TableBody,
@@ -20,108 +19,127 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, } from "lucide-react"
+import { MoreHorizontal } from "lucide-react"
 import { useState } from "react"
-
-import { useForm } from '@tanstack/react-form'
-import { FieldGroup, FieldLabel, FieldError, Field, } from "@/components/ui/field"
+import { useForm } from "@tanstack/react-form"
+import { FieldGroup, FieldLabel, FieldError, Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import { uppercaseFirstLetter } from "@/lib/utils"
 import { Header } from "@/components/layout/header"
 import { z } from "zod"
 
+const HOTLINE_NAME_MAX_LENGTH = 60
+const HOTLINE_DESCRIPTION_MAX_LENGTH = 160
+const HOTLINE_PHONE_MAX_LENGTH = 11
+
+const normalizeInlineText = (value: string) => value.replace(/\s+/g, " ").trim()
+const normalizeDescription = (value: string) => value.trim()
+const sanitizeDigits = (value: string, maxLength: number) => value.replace(/\D/g, "").slice(0, maxLength)
+
 const hotlineSchema = z.object({
-	name: z.string().min(1, "Name is required"),
-	description: z.string().nullable(),
-	phone_number: z.string().regex(/^\d+$/, "Phone number must contain only digits").min(3, "Phone number must be at least 3 digits").max(11, "Phone number must be at most 11 digits")
+	name: z
+		.string()
+		.transform(normalizeInlineText)
+		.pipe(z.string().min(1, "Name is required").max(HOTLINE_NAME_MAX_LENGTH, `Name must be ${HOTLINE_NAME_MAX_LENGTH} characters or less`)),
+	description: z
+		.string()
+		.max(HOTLINE_DESCRIPTION_MAX_LENGTH, `Description must be ${HOTLINE_DESCRIPTION_MAX_LENGTH} characters or less`)
+		.transform((value) => {
+			const normalized = normalizeDescription(value)
+			return normalized === "" ? null : normalized
+		}),
+	phone_number: z
+		.string()
+		.regex(/^\d+$/, "Phone number must contain only digits")
+		.min(3, "Phone number must be at least 3 digits")
+		.max(HOTLINE_PHONE_MAX_LENGTH, `Phone number must be at most ${HOTLINE_PHONE_MAX_LENGTH} digits`),
 })
 
 export default function HotlinesPage() {
 	const { hotlines, deleteHotline, addHotline, updateHotline } = useHotlines()
-
 	const [editingHotline, setEditingHotline] = useState<number | null>(null)
 	const [addOpen, setAddOpen] = useState(false)
 	const [confirmDeleteHotline, setConfirmDeleteHotline] = useState<{ id: number; name: string } | null>(null)
 
-	const getHotline = (id: number) => {
-		return hotlines.find(h => h.id === id)
-	}
+	const getHotline = (id: number) => hotlines.find((hotline) => hotline.id === id)
 
 	const editForm = useForm({
 		defaultValues: {
 			name: "",
-			description: null as string | null,
-			phone_number: ""
+			description: "",
+			phone_number: "",
 		},
 		validators: {
-			onSubmit: hotlineSchema
+			onSubmit: hotlineSchema,
 		},
 		onSubmit: async ({ value }) => {
-			if (editingHotline) {
-				await updateHotline(editingHotline, value as any)
-			}
+			if (!editingHotline) return
+			const parsed = hotlineSchema.parse(value)
+			await updateHotline(editingHotline, parsed)
 			setEditingHotline(null)
 			editForm.reset()
-		}
+		},
 	})
 
 	const addForm = useForm({
 		defaultValues: {
 			name: "",
-			description: null as string | null,
-			phone_number: ""
+			description: "",
+			phone_number: "",
 		},
 		validators: {
-			onSubmit: hotlineSchema
+			onSubmit: hotlineSchema,
 		},
 		onSubmit: async ({ value }) => {
-			await addHotline(value as any)
+			const parsed = hotlineSchema.parse(value)
+			await addHotline({ ...parsed, available: true })
 			setAddOpen(false)
 			addForm.reset()
-		}
+		},
 	})
 
 	return (
 		<>
-
 			<Header title="Hotlines" />
 
-			<Dialog open={editingHotline !== null} onOpenChange={(open) => {
-				if (!open) {
-					setEditingHotline(null)
-					editForm.reset()
-				} else if (editingHotline) {
-					const hotline = getHotline(editingHotline)
-					if (hotline) {
-						editForm.setFieldValue('name', hotline.name)
-						editForm.setFieldValue('description', hotline.description ?? null)
-						editForm.setFieldValue('phone_number', hotline.phone_number)
+			<Dialog
+				open={editingHotline !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setEditingHotline(null)
+						editForm.reset()
+						return
 					}
-				}
-			}}>
+
+					if (!editingHotline) return
+					const hotline = getHotline(editingHotline)
+					if (!hotline) return
+
+					editForm.setFieldValue("name", hotline.name)
+					editForm.setFieldValue("description", hotline.description ?? "")
+					editForm.setFieldValue("phone_number", hotline.phone_number)
+				}}
+			>
 				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>Edit Hotline</DialogTitle>
 						<DialogDescription>
-							Editing hotline: {getHotline(editingHotline!)?.name}
+							Editing hotline: {editingHotline ? getHotline(editingHotline)?.name : ""}
 						</DialogDescription>
 					</DialogHeader>
 
 					<form
-						onSubmit={(e) => {
-							e.preventDefault()
-							editForm.handleSubmit()
+						onSubmit={(event) => {
+							event.preventDefault()
+							void editForm.handleSubmit()
 						}}
 					>
 						<FieldGroup>
 							<editForm.Field
 								name="name"
 								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
@@ -129,24 +147,26 @@ export default function HotlinesPage() {
 												id={field.name}
 												name={field.name}
 												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
+												onBlur={() => {
+													field.handleChange(normalizeInlineText(field.state.value))
+													field.handleBlur()
+												}}
+												onChange={(event) => field.handleChange(event.target.value)}
 												aria-invalid={isInvalid}
 												placeholder="Support Line"
 												autoComplete="off"
+												maxLength={HOTLINE_NAME_MAX_LENGTH}
 											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											{isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
 										</Field>
 									)
 								}}
 							/>
 
-
 							<editForm.Field
 								name="phone_number"
 								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Phone number</FieldLabel>
@@ -155,38 +175,45 @@ export default function HotlinesPage() {
 												name={field.name}
 												value={field.state.value}
 												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value.replace(/\D/g, ''))}
+												onChange={(event) => field.handleChange(sanitizeDigits(event.target.value, HOTLINE_PHONE_MAX_LENGTH))}
 												aria-invalid={isInvalid}
 												placeholder="639123"
 												autoComplete="off"
 												type="tel"
+												inputMode="numeric"
+												maxLength={HOTLINE_PHONE_MAX_LENGTH}
 											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											{isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
 										</Field>
 									)
 								}}
 							/>
 
-
 							<editForm.Field
 								name="description"
 								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Description</FieldLabel>
 											<Textarea
 												id={field.name}
 												name={field.name}
-												value={field.state.value ?? ""}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
+												value={field.state.value}
+												onBlur={() => {
+													field.handleChange(normalizeDescription(field.state.value))
+													field.handleBlur()
+												}}
+												onChange={(event) => field.handleChange(event.target.value)}
 												aria-invalid={isInvalid}
 												placeholder="Optional description"
 												autoComplete="off"
+												maxLength={HOTLINE_DESCRIPTION_MAX_LENGTH}
 											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											<div className="text-right text-xs text-muted-foreground">
+												{field.state.value.length}/{HOTLINE_DESCRIPTION_MAX_LENGTH}
+											</div>
+											{isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
 										</Field>
 									)
 								}}
@@ -195,7 +222,6 @@ export default function HotlinesPage() {
 							<Button type="submit">Submit</Button>
 						</FieldGroup>
 					</form>
-
 				</DialogContent>
 			</Dialog>
 
@@ -203,23 +229,20 @@ export default function HotlinesPage() {
 				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>Add Hotline</DialogTitle>
-						<DialogDescription>
-							Add a new hotline
-						</DialogDescription>
+						<DialogDescription>Add a new hotline</DialogDescription>
 					</DialogHeader>
 
 					<form
-						onSubmit={(e) => {
-							e.preventDefault()
-							addForm.handleSubmit()
+						onSubmit={(event) => {
+							event.preventDefault()
+							void addForm.handleSubmit()
 						}}
 					>
 						<FieldGroup>
 							<addForm.Field
 								name="name"
 								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
@@ -227,24 +250,26 @@ export default function HotlinesPage() {
 												id={field.name}
 												name={field.name}
 												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
+												onBlur={() => {
+													field.handleChange(normalizeInlineText(field.state.value))
+													field.handleBlur()
+												}}
+												onChange={(event) => field.handleChange(event.target.value)}
 												aria-invalid={isInvalid}
 												placeholder="Support Line"
 												autoComplete="off"
+												maxLength={HOTLINE_NAME_MAX_LENGTH}
 											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											{isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
 										</Field>
 									)
 								}}
 							/>
 
-
 							<addForm.Field
 								name="phone_number"
 								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Phone number</FieldLabel>
@@ -253,38 +278,45 @@ export default function HotlinesPage() {
 												name={field.name}
 												value={field.state.value}
 												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value.replace(/\D/g, ''))}
+												onChange={(event) => field.handleChange(sanitizeDigits(event.target.value, HOTLINE_PHONE_MAX_LENGTH))}
 												aria-invalid={isInvalid}
 												placeholder="639123"
 												autoComplete="off"
 												type="tel"
+												inputMode="numeric"
+												maxLength={HOTLINE_PHONE_MAX_LENGTH}
 											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											{isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
 										</Field>
 									)
 								}}
 							/>
 
-
 							<addForm.Field
 								name="description"
 								children={(field) => {
-									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Description</FieldLabel>
 											<Textarea
 												id={field.name}
 												name={field.name}
-												value={field.state.value ?? ""}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
+												value={field.state.value}
+												onBlur={() => {
+													field.handleChange(normalizeDescription(field.state.value))
+													field.handleBlur()
+												}}
+												onChange={(event) => field.handleChange(event.target.value)}
 												aria-invalid={isInvalid}
 												placeholder="Optional description"
 												autoComplete="off"
+												maxLength={HOTLINE_DESCRIPTION_MAX_LENGTH}
 											/>
-											{isInvalid && <FieldError errors={field.state.meta.errors} />}
+											<div className="text-right text-xs text-muted-foreground">
+												{field.state.value.length}/{HOTLINE_DESCRIPTION_MAX_LENGTH}
+											</div>
+											{isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
 										</Field>
 									)
 								}}
@@ -293,7 +325,6 @@ export default function HotlinesPage() {
 							<Button type="submit">Submit</Button>
 						</FieldGroup>
 					</form>
-
 				</DialogContent>
 			</Dialog>
 
@@ -303,16 +334,18 @@ export default function HotlinesPage() {
 						<DialogTitle>Delete Hotline</DialogTitle>
 					</DialogHeader>
 					<p>Are you sure you want to delete "{confirmDeleteHotline?.name}"? This action cannot be undone.</p>
-					<div className="flex gap-2 justify-end">
+					<div className="flex justify-end gap-2">
 						<Button variant="outline" onClick={() => setConfirmDeleteHotline(null)}>
 							Cancel
 						</Button>
-						<Button variant="destructive" onClick={() => {
-							if (confirmDeleteHotline) {
+						<Button
+							variant="destructive"
+							onClick={() => {
+								if (!confirmDeleteHotline) return
 								deleteHotline(confirmDeleteHotline.id)
 								setConfirmDeleteHotline(null)
-							}
-						}}>
+							}}
+						>
 							Delete
 						</Button>
 					</div>
@@ -324,9 +357,7 @@ export default function HotlinesPage() {
 					<CardTitle>
 						Hotlines {hotlines.length > 0 ? `(${hotlines.length})` : ""}
 					</CardTitle>
-					<Button onClick={() => setAddOpen(true)}>
-						Add Hotline
-					</Button>
+					<Button onClick={() => setAddOpen(true)}>Add Hotline</Button>
 				</CardHeader>
 				<CardContent>
 					<Table>
@@ -338,8 +369,8 @@ export default function HotlinesPage() {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{hotlines.map((hotline) => {
-								return <TableRow key={hotline.id}>
+							{hotlines.map((hotline) => (
+								<TableRow key={hotline.id}>
 									<TableCell className="font-medium">{hotline.name}</TableCell>
 									<TableCell>{hotline.description}</TableCell>
 									<TableCell>{hotline.phone_number}</TableCell>
@@ -353,30 +384,34 @@ export default function HotlinesPage() {
 											</DropdownMenuTrigger>
 											<DropdownMenuContent align="end">
 												<DropdownMenuLabel>Actions</DropdownMenuLabel>
-												<DropdownMenuItem onClick={() => {
-													const h = hotlines.find(h => h.id === hotline.id)
-													if (h) {
-														editForm.setFieldValue('name', h.name)
-														editForm.setFieldValue('description', h.description ?? null)
-														editForm.setFieldValue('phone_number', h.phone_number)
-													}
-													setEditingHotline(hotline.id)
-												}}>
+												<DropdownMenuItem
+													onClick={() => {
+														const currentHotline = hotlines.find((item) => item.id === hotline.id)
+														if (currentHotline) {
+															editForm.setFieldValue("name", currentHotline.name)
+															editForm.setFieldValue("description", currentHotline.description ?? "")
+															editForm.setFieldValue("phone_number", currentHotline.phone_number)
+														}
+														setEditingHotline(hotline.id)
+													}}
+												>
 													Edit
 												</DropdownMenuItem>
-												<DropdownMenuItem onClick={() => {
-													setConfirmDeleteHotline({ id: hotline.id, name: hotline.name })
-												}}>Delete</DropdownMenuItem>
+												<DropdownMenuItem onClick={() => setConfirmDeleteHotline({ id: hotline.id, name: hotline.name })}>
+													Delete
+												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>
 									</TableCell>
 								</TableRow>
-							})}
-							{hotlines.length === 0 && <TableRow>
-								<TableCell colSpan={5} className="text-center">
-									No hotlines found.
-								</TableCell>
-							</TableRow>}
+							))}
+							{hotlines.length === 0 && (
+								<TableRow>
+									<TableCell colSpan={5} className="text-center">
+										No hotlines found.
+									</TableCell>
+								</TableRow>
+							)}
 						</TableBody>
 					</Table>
 				</CardContent>
@@ -384,4 +419,3 @@ export default function HotlinesPage() {
 		</>
 	)
 }
-
