@@ -108,6 +108,8 @@ export default function OfficersPage() {
 	const [errorMessage, setErrorMessage] = useState<string | null>(null)
 	const [rankSearch, setRankSearch] = useState("")
 	const [showRankDropdown, setShowRankDropdown] = useState(false)
+	const [showAddFieldErrors, setShowAddFieldErrors] = useState(false)
+	const [showEditFieldErrors, setShowEditFieldErrors] = useState(false)
 	const rankDropdownRef = useRef<HTMLDivElement>(null)
 	const [editOpen, setEditOpen] = useState(false)
 	const [editingOfficer, setEditingOfficer] = useState<any>(null)
@@ -153,7 +155,8 @@ export default function OfficersPage() {
 			last_name: "",
 		},
 		validators: {
-			onSubmit: officerSchema as any
+			onChange: officerSchema as any,
+			onSubmit: officerSchema as any,
 		},
 		onSubmit: async ({ value }) => {
 			try {
@@ -172,23 +175,30 @@ export default function OfficersPage() {
 				officerSchema.parse(normalizedValue)
 
 				const generatedPassword = generatePassword(6)
-
 				const client = getDispatchClient()
-				const result = await client.createOfficer(
-					normalizedValue.badge_number,
-					normalizedValue.email,
-					normalizedValue.rank,
-					normalizedValue.first_name,
-					normalizedValue.middle_name,
-					normalizedValue.last_name,
-					generatedPassword
-				)
+				const { data: sessionData } = await client.supabaseClient.auth.getSession()
+				const accessToken = sessionData.session?.access_token
+				if (!accessToken) {
+					setErrorMessage("Admin session expired. Please sign in again.")
+					setIsCreating(false)
+					return
+				}
 
-				console.log(value)
+				const createOfficerResponse = await fetch("/api/officers", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${accessToken}`,
+					},
+					body: JSON.stringify({
+						...normalizedValue,
+						password: generatedPassword,
+					}),
+				})
 
-				if (result.error) {
-					console.error("something happened", result.error)
-					setErrorMessage(result.error.message)
+				const createOfficerResult = await createOfficerResponse.json().catch(() => null)
+				if (!createOfficerResponse.ok) {
+					setErrorMessage(createOfficerResult?.error ?? "Failed to create officer")
 					setIsCreating(false)
 					return
 				}
@@ -208,6 +218,7 @@ export default function OfficersPage() {
 
 				setSuccessMessage(`Officer ${normalizedValue.first_name} ${normalizedValue.last_name} created successfully!`)
 				setAddOpen(false)
+				setShowAddFieldErrors(false)
 				addForm.reset()
 			} catch (error) {
 				setErrorMessage(error instanceof Error ? error.message : "Failed to create officer")
@@ -225,7 +236,8 @@ export default function OfficersPage() {
 			last_name: editingOfficer?.last_name || "",
 		},
 		validators: {
-			onSubmit: editOfficerSchema as any
+			onChange: editOfficerSchema as any,
+			onSubmit: editOfficerSchema as any,
 		},
 		onSubmit: async ({ value }) => {
 			try {
@@ -251,6 +263,7 @@ export default function OfficersPage() {
 				setSuccessMessage(`Officer ${normalizedValue.first_name} ${normalizedValue.last_name} updated successfully!`)
 				setEditOpen(false)
 				setEditingOfficer(null)
+				setShowEditFieldErrors(false)
 				editForm.reset()
 			} catch (error) {
 				setErrorMessage(error instanceof Error ? error.message : "Failed to update officer")
@@ -328,6 +341,7 @@ export default function OfficersPage() {
 					setErrorMessage(null)
 					setRankSearch("")
 					setShowRankDropdown(false)
+					setShowAddFieldErrors(false)
 				}
 			}}>
 				<DialogContent className="sm:max-w-2xl">
@@ -351,6 +365,7 @@ export default function OfficersPage() {
 					<form
 						onSubmit={(e) => {
 							e.preventDefault()
+							setShowAddFieldErrors(true)
 							addForm.handleSubmit()
 						}}
 					>
@@ -361,7 +376,7 @@ export default function OfficersPage() {
 									name="badge_number"
 									children={(field) => {
 										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid
+											(showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>Badge Number *</FieldLabel>
@@ -388,7 +403,7 @@ export default function OfficersPage() {
 									name="rank"
 									children={(field) => {
 										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid
+											(showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)} *</FieldLabel>
@@ -444,7 +459,7 @@ export default function OfficersPage() {
 								name="email"
 								children={(field) => {
 									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
+										(showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
@@ -472,7 +487,7 @@ export default function OfficersPage() {
 									name="first_name"
 									children={(field) => {
 										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid
+											(showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>First Name *</FieldLabel>
@@ -500,7 +515,7 @@ export default function OfficersPage() {
 									name="middle_name"
 									children={(field) => {
 										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid
+											(showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>Middle Name</FieldLabel>
@@ -528,7 +543,7 @@ export default function OfficersPage() {
 									name="last_name"
 									children={(field) => {
 										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid
+											(showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>Last Name *</FieldLabel>
@@ -574,6 +589,7 @@ export default function OfficersPage() {
 					editForm.reset()
 					setErrorMessage(null)
 					setEditingOfficer(null)
+					setShowEditFieldErrors(false)
 				}
 			}}>
 				<DialogContent className="sm:max-w-2xl">
@@ -587,6 +603,7 @@ export default function OfficersPage() {
 					<form
 						onSubmit={(e) => {
 							e.preventDefault()
+							setShowEditFieldErrors(true)
 							editForm.handleSubmit()
 						}}
 					>
@@ -596,7 +613,7 @@ export default function OfficersPage() {
 								name="badge_number"
 								children={(field) => {
 									const isInvalid =
-										field.state.meta.isTouched && !field.state.meta.isValid
+										(showEditFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Badge Number *</FieldLabel>
@@ -625,7 +642,7 @@ export default function OfficersPage() {
 									name="first_name"
 									children={(field) => {
 										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid
+											(showEditFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>First Name *</FieldLabel>
@@ -653,7 +670,7 @@ export default function OfficersPage() {
 									name="middle_name"
 									children={(field) => {
 										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid
+											(showEditFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>Middle Name</FieldLabel>
@@ -681,7 +698,7 @@ export default function OfficersPage() {
 									name="last_name"
 									children={(field) => {
 										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid
+											(showEditFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 										return (
 											<Field data-invalid={isInvalid}>
 												<FieldLabel htmlFor={field.name}>Last Name *</FieldLabel>

@@ -60,6 +60,8 @@ export default function HotlinesPage() {
 	const { hotlines, deleteHotline, addHotline, updateHotline } = useHotlines()
 	const [editingHotline, setEditingHotline] = useState<number | null>(null)
 	const [addOpen, setAddOpen] = useState(false)
+	const [showEditFieldErrors, setShowEditFieldErrors] = useState(false)
+	const [showAddFieldErrors, setShowAddFieldErrors] = useState(false)
 	const [confirmDeleteHotline, setConfirmDeleteHotline] = useState<{ id: number; name: string } | null>(null)
 
 	const getHotline = (id: number) => hotlines.find((hotline) => hotline.id === id)
@@ -71,6 +73,7 @@ export default function HotlinesPage() {
 			phone_number: "",
 		},
 		validators: {
+			onChange: hotlineSchema,
 			onSubmit: hotlineSchema,
 		},
 		onSubmit: async ({ value }) => {
@@ -78,6 +81,7 @@ export default function HotlinesPage() {
 			const parsed = hotlineSchema.parse(value)
 			await updateHotline(editingHotline, parsed)
 			setEditingHotline(null)
+			setShowEditFieldErrors(false)
 			editForm.reset()
 		},
 	})
@@ -89,12 +93,14 @@ export default function HotlinesPage() {
 			phone_number: "",
 		},
 		validators: {
+			onChange: hotlineSchema,
 			onSubmit: hotlineSchema,
 		},
 		onSubmit: async ({ value }) => {
 			const parsed = hotlineSchema.parse(value)
 			await addHotline({ ...parsed, available: true })
 			setAddOpen(false)
+			setShowAddFieldErrors(false)
 			addForm.reset()
 		},
 	})
@@ -109,6 +115,7 @@ export default function HotlinesPage() {
 					if (!open) {
 						setEditingHotline(null)
 						editForm.reset()
+						setShowEditFieldErrors(false)
 						return
 					}
 
@@ -132,6 +139,7 @@ export default function HotlinesPage() {
 					<form
 						onSubmit={(event) => {
 							event.preventDefault()
+							setShowEditFieldErrors(true)
 							void editForm.handleSubmit()
 						}}
 					>
@@ -139,7 +147,7 @@ export default function HotlinesPage() {
 							<editForm.Field
 								name="name"
 								children={(field) => {
-									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = (showEditFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
@@ -166,7 +174,7 @@ export default function HotlinesPage() {
 							<editForm.Field
 								name="phone_number"
 								children={(field) => {
-									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = (showEditFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Phone number</FieldLabel>
@@ -192,7 +200,7 @@ export default function HotlinesPage() {
 							<editForm.Field
 								name="description"
 								children={(field) => {
-									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = (showEditFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Description</FieldLabel>
@@ -225,7 +233,11 @@ export default function HotlinesPage() {
 				</DialogContent>
 			</Dialog>
 
-			<Dialog open={addOpen} onOpenChange={setAddOpen}>
+			<Dialog open={addOpen} onOpenChange={(open) => {
+				setAddOpen(open)
+				if (open) return
+				setShowAddFieldErrors(false)
+			}}>
 				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>Add Hotline</DialogTitle>
@@ -235,6 +247,7 @@ export default function HotlinesPage() {
 					<form
 						onSubmit={(event) => {
 							event.preventDefault()
+							setShowAddFieldErrors(true)
 							void addForm.handleSubmit()
 						}}
 					>
@@ -242,7 +255,7 @@ export default function HotlinesPage() {
 							<addForm.Field
 								name="name"
 								children={(field) => {
-									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = (showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>{uppercaseFirstLetter(field.name)}</FieldLabel>
@@ -269,7 +282,7 @@ export default function HotlinesPage() {
 							<addForm.Field
 								name="phone_number"
 								children={(field) => {
-									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = (showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Phone number</FieldLabel>
@@ -295,7 +308,7 @@ export default function HotlinesPage() {
 							<addForm.Field
 								name="description"
 								children={(field) => {
-									const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+									const isInvalid = (showAddFieldErrors || field.state.meta.isTouched) && ((field.state.meta.errors?.length ?? 0) > 0)
 									return (
 										<Field data-invalid={isInvalid}>
 											<FieldLabel htmlFor={field.name}>Description</FieldLabel>
