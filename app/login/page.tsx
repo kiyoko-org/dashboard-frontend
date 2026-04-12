@@ -2,32 +2,68 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { z } from "zod"
 import { useAuthContext } from "dispatch-lib"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+
+const LOGIN_EMAIL_MAX_LENGTH = 254
+const LOGIN_PASSWORD_MAX_LENGTH = 128
+
+const loginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .max(LOGIN_EMAIL_MAX_LENGTH, `Email must be ${LOGIN_EMAIL_MAX_LENGTH} characters or less`)
+    .email("Invalid email address"),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .max(LOGIN_PASSWORD_MAX_LENGTH, `Password must be ${LOGIN_PASSWORD_MAX_LENGTH} characters or less`),
+})
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [emailTouched, setEmailTouched] = useState(false)
+  const [passwordTouched, setPasswordTouched] = useState(false)
+  const [showFieldErrors, setShowFieldErrors] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const { signIn } = useAuthContext()
   const router = useRouter()
 
+  const emailValidation = loginSchema.shape.email.safeParse(email)
+  const passwordValidation = loginSchema.shape.password.safeParse(password)
+  const showEmailError = (emailTouched || showFieldErrors) && !emailValidation.success
+  const showPasswordError = (passwordTouched || showFieldErrors) && !passwordValidation.success
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setShowFieldErrors(true)
+    setEmailTouched(true)
+    setPasswordTouched(true)
+
+    const parsed = loginSchema.safeParse({ email, password })
+    if (!parsed.success) {
+      return
+    }
+
     setIsLoading(true)
 
-    const normalizedEmail = email.trim().toLowerCase()
-    const result = await signIn(normalizedEmail, password)
+    const normalizedEmail = parsed.data.email.toLowerCase()
+    const result = await signIn(normalizedEmail, parsed.data.password)
 
     if (result.error) {
       setError(result.error)
       setIsLoading(false)
-    } else {
-      router.push("/dashboard")
+      return
     }
+
+    router.push("/dashboard")
   }
 
   return (
@@ -39,40 +75,55 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
+          <FieldGroup className="space-y-4">
+            <Field data-invalid={showEmailError}>
+              <FieldLabel htmlFor="email">Email</FieldLabel>
               <Input
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setError(null)
+                  setEmailTouched(true)
+                  setEmail(e.target.value.slice(0, LOGIN_EMAIL_MAX_LENGTH))
+                }}
+                onBlur={() => setEmailTouched(true)}
                 required
                 className="mt-1"
                 placeholder="admin@example.com"
-                maxLength={254}
+                maxLength={LOGIN_EMAIL_MAX_LENGTH}
                 autoComplete="email"
+                aria-invalid={showEmailError}
               />
-            </div>
+              {showEmailError ? (
+                <FieldError errors={[{ message: emailValidation.error.issues[0]?.message }]} />
+              ) : null}
+            </Field>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
+            <Field data-invalid={showPasswordError}>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
               <Input
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setError(null)
+                  setPasswordTouched(true)
+                  setPassword(e.target.value.slice(0, LOGIN_PASSWORD_MAX_LENGTH))
+                }}
+                onBlur={() => setPasswordTouched(true)}
                 required
                 className="mt-1"
                 placeholder="••••••••"
                 autoComplete="current-password"
+                maxLength={LOGIN_PASSWORD_MAX_LENGTH}
+                aria-invalid={showPasswordError}
               />
-            </div>
-          </div>
+              {showPasswordError ? (
+                <FieldError errors={[{ message: passwordValidation.error.issues[0]?.message }]} />
+              ) : null}
+            </Field>
+          </FieldGroup>
 
           {error && (
             <div className="rounded-md bg-red-50 p-3">

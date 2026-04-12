@@ -38,7 +38,7 @@ Low priority / probably leave alone for now:
 | Field | Proposed UI limit | Guardrails |
 |---|---:|---|
 | email | 254 | trim + lowercase in submitted value only; do not force lowercase while typing |
-| password | no hard cap for now | do not trim |
+| password | 128 | do not trim |
 
 ## `/dashboard/database`
 | Field | Proposed UI limit | Guardrails |
@@ -111,7 +111,8 @@ const loginSchema = z.object({
     .transform((value) => value.toLowerCase()),
   password: z
     .string()
-    .min(1, "Password is required"),
+    .min(1, "Password is required")
+    .max(128, "Password is too long"),
 })
 ```
 
@@ -123,7 +124,7 @@ const loginSchema = z.object({
 - add `autoComplete="current-password"` to password input
 
 ### Notes
-- I would **not** add a password hard cap right now.
+- Password stays untrimmed.
 
 ---
 
@@ -434,9 +435,11 @@ That gives us the main UI safety wins without touching shared library code.
 1. Open `/login`
 2. Try typing more than 254 chars in email
 3. Expected: input stops at `maxLength`
-4. Enter mixed-case email like `Admin@Example.com`
-5. Submit
-6. Expected: visible field is not force-lowercased while typing; submitted value is normalized before auth
+4. In password, try more than 128 chars
+5. Expected: input stops at `maxLength`
+6. Enter mixed-case email like `Admin@Example.com`
+7. Submit
+8. Expected: visible field is not force-lowercased while typing; submitted value is normalized before auth
 
 ## `/dashboard/database`
 1. Open **Database** page
